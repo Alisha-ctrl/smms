@@ -3,6 +3,7 @@
     <a href="../transactions/transactions.php">Transactions</a> |
     <a href="../budgets/budgets.php">Budgets</a> |
     <a href="../savings_goals/savings_goals.php">Savings Goals</a> |
+    <a href="../insights/insights.php">Insights</a> |
     <a href="../auth/logout.php">Logout</a>
 </p>
 <hr>
