@@ -112,7 +112,9 @@ INSERT INTO categories (user_id, category_name, category_type) VALUES
 -- Demo users (password below is a bcrypt hash of "password123")
 INSERT INTO users (full_name, email, password, role) VALUES
 ('Test User', 'test@example.com', '$2y$10$WqQF8fJ0kY2r9C9GZP6PIuJgxG3o3Zf1v0tX5s2b7d1kQe4mN6r7K', 'user'),
-('System Admin', 'admin@smms.com', '$2y$10$WqQF8fJ0kY2r9C9GZP6PIuJgxG3o3Zf1v0tX5s2b7d1kQe4mN6r7K', 'admin');
+('
+
+System Admin', 'admin@smms.com', '$2y$10$WqQF8fJ0kY2r9C9GZP6PIuJgxG3o3Zf1v0tX5s2b7d1kQe4mN6r7K', 'admin');
 
 -- Sample transactions for the demo user
 INSERT INTO transactions (user_id, category_id, type, amount, description, transaction_date) VALUES
