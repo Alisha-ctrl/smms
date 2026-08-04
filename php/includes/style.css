@@ -1,0 +1,147 @@
+/* ============================================================
+   SMMS - Basic Stylesheet
+   Color palette used:
+   #2C3333 - darkest (near-black teal)  -> navbar background, headings
+   #395B64 - dark teal                  -> buttons, table header
+   #A5C9CA - light teal                 -> borders, hover highlights
+   #E7F6F2 - palest teal                -> page background
+   ============================================================ */
+
+/* ---- Overall page look ---- */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #E7F6F2;
+    color: #333333;
+    margin: 0;
+    padding: 20px;
+}
+
+/* ---- Content width control ---- */
+h2,
+h3,
+form,
+table,
+p {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ---- Headings ----
+   No underline/border here on purpose - instead the heading
+   stands out through size, weight, color, and spacing below it. */
+h2 {
+    color: #2C3333;
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+h3 {
+    color: #2C3333;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* ---- Navigation bar ---- */
+nav {
+    background-color: #2C3333;
+    margin: -20px -20px 20px -20px;
+    padding: 0 20px;
+}
+
+nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+nav ul li {
+    display: inline-block;
+}
+
+nav ul li a {
+    display: inline-block;
+    color: #ffffff;
+    text-decoration: none;
+    font-weight: bold;
+    padding: 15px 18px;
+}
+
+nav ul li a:hover {
+    background-color: #395B64;
+}
+
+/* ---- Forms ---- */
+form {
+    background-color: #ffffff;
+    padding: 20px;
+    border: 1px solid #A5C9CA;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+input,
+select {
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #A5C9CA;
+    border-radius: 4px;
+    width: 250px;
+}
+
+/* ---- Buttons ---- */
+button {
+    background-color: #395B64;
+    color: #ffffff;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+button:hover {
+    background-color: #2C3333;
+}
+
+/* ---- Tables ---- */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    margin-top: 15px;
+}
+
+th {
+    background-color: #395B64;
+    color: #ffffff;
+    padding: 10px;
+    text-align: left;
+}
+
+td {
+    padding: 10px;
+    border-bottom: 1px solid #A5C9CA;
+}
+
+tr:hover {
+    background-color: #E7F6F2;
+}
+
+/* ---- Links inside tables (Edit / Delete) ---- */
+td a {
+    color: #395B64;
+    text-decoration: none;
+    margin-right: 8px;
+    font-weight: bold;
+}
+
+td a:hover {
+    text-decoration: underline;
+}
+
+/* ---- Messages (success/error text) ---- */
+p {
+    color: #333333;
+}

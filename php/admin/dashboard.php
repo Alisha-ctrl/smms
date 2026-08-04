@@ -10,7 +10,9 @@ $total_expense = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(amount) AS t
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Admin Dashboard - SMMS</title></head>
+<head><title>Admin Dashboard - SMMS</title>
+<link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Admin Dashboard</h2>
     <p>

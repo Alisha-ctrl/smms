@@ -30,7 +30,9 @@ $categories = mysqli_query($conn, "SELECT * FROM categories WHERE (user_id IS NU
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Edit Budget - SMMS</title></head>
+<head><title>Edit Budget - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Edit Budget</h2>
 

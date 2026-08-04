@@ -18,7 +18,9 @@ $users = mysqli_query($conn, "SELECT * FROM users WHERE role = 'user' ORDER BY c
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Manage Users - SMMS</title></head>
+<head><title>Manage Users - SMMS</title>
+<link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Manage Users</h2>
     <p><a href="dashboard.php">Back to Dashboard</a></p>

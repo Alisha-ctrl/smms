@@ -29,7 +29,9 @@ $g = mysqli_fetch_assoc($result);
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Edit Savings Goal - SMMS</title></head>
+<head><title>Edit Savings Goal - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Edit Savings Goal</h2>
 

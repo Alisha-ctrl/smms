@@ -37,7 +37,9 @@ $budgets = mysqli_query($conn, $sql);
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>My Budgets - SMMS</title></head>
+<head><title>My Budgets - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Budgets</h2>
     <?php include "../includes/nav.php"; ?>

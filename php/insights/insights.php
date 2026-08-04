@@ -171,7 +171,9 @@ if (mysqli_num_rows(mysqli_query($conn, "SELECT * FROM savings_goals WHERE user_
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Insights - SMMS</title></head>
+<head><title>Insights - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Your Financial Insights</h2>
     <?php include "../includes/nav.php"; ?>

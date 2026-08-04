@@ -30,7 +30,9 @@ $goals = mysqli_query($conn, $sql);
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>My Savings Goals - SMMS</title></head>
+<head><title>My Savings Goals - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Savings Goals</h2>
     <?php include "../includes/nav.php"; ?>

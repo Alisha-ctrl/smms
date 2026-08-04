@@ -28,7 +28,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Admin Login - SMMS</title></head>
+<head><title>Admin Login - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Admin Login</h2>
     <?php if ($message) echo "<p>$message</p>"; ?>

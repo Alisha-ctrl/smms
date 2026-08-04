@@ -20,7 +20,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Register - SMMS</title></head>
+<head><title>Register - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Create an Account</h2>
     <?php if ($message) echo "<p>$message</p>"; ?>

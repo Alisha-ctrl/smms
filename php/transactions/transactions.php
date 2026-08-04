@@ -38,7 +38,9 @@ $transactions = mysqli_query($conn, $sql);
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>My Transactions - SMMS</title></head>
+<head><title>My Transactions - SMMS</title>
+        <link rel="stylesheet" href="../includes/style.css">
+</head>
 <body>
     <h2>Welcome, <?php echo htmlspecialchars($_SESSION["full_name"]); ?></h2>
     <?php include "../includes/nav.php"; ?>
