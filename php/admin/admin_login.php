@@ -28,8 +28,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Admin Login - SMMS</title>
-        <link rel="stylesheet" href="../includes/style.css">
+<head>
+    <title>Admin Login - SMMS</title>
+    <link rel="stylesheet" href="../includes/style.css">
 </head>
 <body>
     <h2>Admin Login</h2>
@@ -40,5 +41,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         Password: <input type="password" name="password" required><br><br>
         <button type="submit">Login</button>
     </form>
+
+    <!-- Absolute paths (starting with /smms/) instead of relative ../../
+         paths - these always point to the same place no matter how deep
+         the current file is nested, which avoids folder-counting mistakes. -->
+    <p>Not an admin? <a href="/smms/php/auth/login.php">Login as a regular user</a></p>
+    <p><a href="/smms/index.php">Back to Homepage</a></p>
 </body>
 </html>

@@ -19,7 +19,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $_SESSION["full_name"] = $user["full_name"];
         $_SESSION["role"] = $user["role"];
 
-        header("Location: ../transactions/transactions.php");
+        header("Location: ../dashboard/dashboard.php");
         exit;
     } else {
         $message = "Invalid email or password.";
@@ -28,8 +28,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 ?>
 <!DOCTYPE html>
 <html>
-<head><title>Login - SMMS</title>
-<link rel="stylesheet" href="../includes/style.css">
+<head>
+    <title>Login - SMMS</title>
+    <link rel="stylesheet" href="../includes/style.css">
 </head>
 <body>
     <h2>Login</h2>
