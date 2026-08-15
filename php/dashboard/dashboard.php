@@ -59,6 +59,10 @@ $sql = "SELECT t.*, c.category_name
         LIMIT 6";
 $recent = mysqli_query($conn, $sql);
 
+// ---- Unread budget alerts for this user ----
+$alerts_sql = "SELECT * FROM budget_alerts WHERE user_id = $user_id AND is_read = 0 ORDER BY created_at DESC";
+$alerts = mysqli_query($conn, $alerts_sql);
+
 $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#C97B4A', '#34495E'];
 ?>
 <!DOCTYPE html>
@@ -85,6 +89,15 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
         .hero-balance { background: linear-gradient(135deg, #8FB7DE, #5A80AC); }
 
         .card-block { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+        .alert-row {
+            display: flex; align-items: flex-start; gap: 10px; padding: 10px 0;
+            border-bottom: 1px solid #F0F0F0; font-size: 14px;
+        }
+        .alert-row:last-child { border-bottom: none; }
+        .alert-icon { color: #E74C3C; font-size: 18px; margin-top: 2px; }
+        .alert-dismiss { font-size: 12px; color: #999999; text-decoration: none; white-space: nowrap; }
+        .alert-dismiss:hover { color: #769FCD; }
 
         .legend-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
         .legend-left { display: flex; align-items: center; gap: 8px; }
@@ -132,6 +145,19 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
     <div class="page-wrap">
         <h2>Dashboard</h2>
         <p class="text-muted">Welcome back, <?php echo htmlspecialchars($_SESSION["full_name"]); ?> - here's <?php echo $month_name; ?> at a glance.</p>
+
+        <?php if (mysqli_num_rows($alerts) > 0) { ?>
+            <div class="card-block mb-3" style="border-left: 4px solid #E74C3C;">
+                <h5><i class="bi bi-exclamation-triangle-fill" style="color:#E74C3C;"></i> Budget Alerts</h5>
+                <?php while ($a = mysqli_fetch_assoc($alerts)) { ?>
+                    <div class="alert-row">
+                        <span class="alert-icon"><i class="bi bi-exclamation-circle-fill"></i></span>
+                        <span style="flex:1;"><?php echo htmlspecialchars($a['alert_message']); ?></span>
+                        <a class="alert-dismiss" href="../dashboard/dismiss_alert.php?id=<?php echo $a['alert_id']; ?>">Dismiss</a>
+                    </div>
+                <?php } ?>
+            </div>
+        <?php } ?>
 
         <div class="row g-3 mb-4">
             <div class="col-md-4">

@@ -1,0 +1,117 @@
+<?php
+include "../includes/auth_check.php";
+include "../includes/db.php";
+
+$user_id = $_SESSION["user_id"];
+$message = "";
+
+// ---- Load current user info ----
+$sql = "SELECT * FROM users WHERE user_id = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "i", $user_id);
+mysqli_stmt_execute($stmt);
+$user = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+
+    // ---- Update name / email ----
+    if (isset($_POST["update_details"])) {
+        $full_name = trim($_POST["full_name"]);
+        $email = trim($_POST["email"]);
+
+        if ($full_name === "" || $email === "") {
+            $message = "Name and email can't be empty.";
+        } else {
+            $sql = "UPDATE users SET full_name = ?, email = ? WHERE user_id = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "ssi", $full_name, $email, $user_id);
+
+            if (mysqli_stmt_execute($stmt)) {
+                $_SESSION["full_name"] = $full_name;
+                $message = "Profile updated!";
+                $user['full_name'] = $full_name;
+                $user['email'] = $email;
+            } else {
+                $message = "Error: " . mysqli_error($conn);
+            }
+        }
+    }
+
+    // ---- Change password (requires the current password to confirm) ----
+    if (isset($_POST["change_password"])) {
+        $current_password = $_POST["current_password"];
+        $new_password = $_POST["new_password"];
+        $confirm_password = $_POST["confirm_password"];
+
+        if (!password_verify($current_password, $user["password"])) {
+            $message = "Current password is incorrect.";
+        } elseif (strlen($new_password) < 6) {
+            $message = "New password must be at least 6 characters.";
+        } elseif ($new_password !== $confirm_password) {
+            $message = "New password and confirmation don't match.";
+        } else {
+            $hashed = password_hash($new_password, PASSWORD_DEFAULT);
+            $sql = "UPDATE users SET password = ? WHERE user_id = ?";
+            $stmt = mysqli_prepare($conn, $sql);
+            mysqli_stmt_bind_param($stmt, "si", $hashed, $user_id);
+
+            if (mysqli_stmt_execute($stmt)) {
+                $message = "Password changed successfully!";
+            } else {
+                $message = "Error: " . mysqli_error($conn);
+            }
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Profile - SMMS</title>
+    <link rel="stylesheet" href="../includes/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        .page-wrap { max-width: 500px; margin: 30px auto; padding: 0 15px; }
+        .profile-card {
+            background: #ffffff; border-radius: 10px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
+        }
+        .profile-card h5 { margin-top: 0; color: #1B3A4B; }
+        .profile-card input { width: 100%; box-sizing: border-box; }
+        .profile-card button {
+            background-color: #769FCD; color: #ffffff; border: none; border-radius: 6px;
+            padding: 10px 18px; font-weight: bold; cursor: pointer;
+        }
+        .profile-card button:hover { background-color: #5A80AC; }
+    </style>
+</head>
+<body>
+    <?php include "../includes/nav.php"; ?>
+
+    <div class="page-wrap">
+        <h2 style="text-align:center;">Your Profile</h2>
+
+        <?php if ($message) echo "<p style='text-align:center;'>$message</p>"; ?>
+
+        <div class="profile-card">
+            <h5>Account Details</h5>
+            <form method="POST" action="profile.php">
+                Full Name: <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name']); ?>" required><br><br>
+                Email: <input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required><br><br>
+                <button type="submit" name="update_details">Save Changes</button>
+            </form>
+        </div>
+
+        <div class="profile-card">
+            <h5>Change Password</h5>
+            <form method="POST" action="profile.php">
+                Current Password: <input type="password" name="current_password" required><br><br>
+                New Password: <input type="password" name="new_password" minlength="6" required><br><br>
+                Confirm New Password: <input type="password" name="confirm_password" minlength="6" required><br><br>
+                <button type="submit" name="change_password">Change Password</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

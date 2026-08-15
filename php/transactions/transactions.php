@@ -24,6 +24,57 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (mysqli_stmt_execute($stmt)) {
         $message = "Transaction added!";
+
+        // ---- Budget Alerts: if this expense pushes a budget over its limit,
+        // record it in budget_alerts (only once per budget, not on every transaction) ----
+        if ($type == 'expense') {
+            $t_month = (int) date('n', strtotime($transaction_date));
+            $t_year = (int) date('Y', strtotime($transaction_date));
+
+            $budget_sql = "SELECT * FROM budgets
+                           WHERE user_id = ? AND category_id = ? AND month = ? AND year = ?";
+            $budget_stmt = mysqli_prepare($conn, $budget_sql);
+            mysqli_stmt_bind_param($budget_stmt, "iiii", $user_id, $category_id, $t_month, $t_year);
+            mysqli_stmt_execute($budget_stmt);
+            $budget = mysqli_fetch_assoc(mysqli_stmt_get_result($budget_stmt));
+
+            if ($budget) {
+                $spent_sql = "SELECT COALESCE(SUM(amount), 0) AS spent FROM transactions
+                              WHERE user_id = ? AND category_id = ? AND type = 'expense'
+                              AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
+                $spent_stmt = mysqli_prepare($conn, $spent_sql);
+                mysqli_stmt_bind_param($spent_stmt, "iiii", $user_id, $category_id, $t_month, $t_year);
+                mysqli_stmt_execute($spent_stmt);
+                $spent = mysqli_fetch_assoc(mysqli_stmt_get_result($spent_stmt))['spent'];
+
+                if ($spent > $budget['budget_amount']) {
+                    // Avoid spamming duplicate alerts for the same budget - only
+                    // insert if there isn't already an unread alert for it.
+                    $existing_sql = "SELECT alert_id FROM budget_alerts
+                                      WHERE budget_id = ? AND is_read = 0";
+                    $existing_stmt = mysqli_prepare($conn, $existing_sql);
+                    mysqli_stmt_bind_param($existing_stmt, "i", $budget['budget_id']);
+                    mysqli_stmt_execute($existing_stmt);
+                    $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($existing_stmt));
+
+                    if (!$existing) {
+                        $category_name_sql = "SELECT category_name FROM categories WHERE category_id = ?";
+                        $cn_stmt = mysqli_prepare($conn, $category_name_sql);
+                        mysqli_stmt_bind_param($cn_stmt, "i", $category_id);
+                        mysqli_stmt_execute($cn_stmt);
+                        $category_name = mysqli_fetch_assoc(mysqli_stmt_get_result($cn_stmt))['category_name'];
+
+                        $over_by = $spent - $budget['budget_amount'];
+                        $alert_message = "You've gone over your " . $category_name . " budget by Rs. " . number_format($over_by, 2) . ".";
+
+                        $insert_alert_sql = "INSERT INTO budget_alerts (user_id, budget_id, alert_message) VALUES (?, ?, ?)";
+                        $insert_alert_stmt = mysqli_prepare($conn, $insert_alert_sql);
+                        mysqli_stmt_bind_param($insert_alert_stmt, "iis", $user_id, $budget['budget_id'], $alert_message);
+                        mysqli_stmt_execute($insert_alert_stmt);
+                    }
+                }
+            }
+        }
     } else {
         $message = "Error: " . mysqli_error($conn);
     }
@@ -107,15 +158,21 @@ uasort($groups, function($a, $b) {
         .item-row .item-date { color: #999999; font-size: 12px; }
         .item-row .item-actions a { font-size: 12px; margin-left: 8px; }
 
-        .fab-wrapper { position: fixed; bottom: 25px; left: 0; right: 0; display: flex; justify-content: center; gap: 30px; }
+        .fab-wrapper { position: fixed; bottom: 25px; left: 0; right: 0; display: flex; justify-content: center; }
         .fab {
-            width: 60px; height: 60px; border-radius: 50%; border: 3px solid; background: #ffffff;
-            font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            width: 60px; height: 60px; border-radius: 50%; border: none; background: #219653;
+            color: #ffffff; font-size: 28px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
-        .fab-expense { border-color: #E74C3C; color: #E74C3C; }
-        .fab-income { border-color: #219653; color: #219653; }
-        #addFormWrapper { max-width: 500px; margin: 0 auto 100px auto; }
+
+        #addFormWrapper { max-width: 500px; margin: 0 auto 100px auto; background: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .type-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
+        .type-toggle button {
+            flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #DDDDDD;
+            background: #ffffff; color: #666666; font-weight: bold; cursor: pointer; font-size: 15px;
+        }
+        .type-toggle button.active.income-active { border-color: #219653; background: #F2FBF6; color: #219653; }
+        .type-toggle button.active.expense-active { border-color: #E74C3C; background: #FDEDEB; color: #E74C3C; }
     </style>
 </head>
 <body>
@@ -129,7 +186,7 @@ uasort($groups, function($a, $b) {
     <?php if ($message) echo "<p style='text-align:center;'>$message</p>"; ?>
 
     <?php if (count($groups) === 0) { ?>
-        <p style="text-align:center; color:#888;">No transactions yet this month. Use the buttons below to add one.</p>
+        <p style="text-align:center; color:#888;">No transactions yet this month. Tap the button below to add one.</p>
     <?php } ?>
 
     <?php foreach ($groups as $cid => $group) { $collapseId = "group-" . $cid; ?>
@@ -167,13 +224,21 @@ uasort($groups, function($a, $b) {
     <?php } ?>
 
     <div id="addFormWrapper" style="display:none;">
-        <h3 id="addFormTitle" style="text-align:center;">Add Transaction</h3>
+        <h3 id="addFormTitle" style="text-align:center; margin-top:0;">Add Transaction</h3>
+
+        <div class="type-toggle">
+            <button type="button" id="incomeToggle" onclick="setType('income')">Income</button>
+            <button type="button" id="expenseToggle" onclick="setType('expense')">Expense</button>
+        </div>
+
         <form method="POST" action="transactions.php">
             <input type="hidden" name="type" id="typeField" value="expense">
             Category:
-            <select name="category_id">
+            <select name="category_id" id="categorySelect">
                 <?php mysqli_data_seek($categories, 0); while ($cat = mysqli_fetch_assoc($categories)) { ?>
-                    <option value="<?php echo $cat['category_id']; ?>"><?php echo $cat['category_name']; ?></option>
+                    <option value="<?php echo $cat['category_id']; ?>" data-type="<?php echo $cat['category_type']; ?>">
+                        <?php echo htmlspecialchars($cat['category_name']); ?>
+                    </option>
                 <?php } ?>
             </select><br><br>
             Amount: <input type="number" step="0.01" name="amount" id="amountField" required><br><br>
@@ -184,16 +249,38 @@ uasort($groups, function($a, $b) {
     </div>
 
     <div class="fab-wrapper">
-        <div class="fab fab-expense" onclick="openAddForm('expense')">−</div>
-        <div class="fab fab-income" onclick="openAddForm('income')">+</div>
+        <div class="fab" onclick="openAddForm()">+</div>
     </div>
 
     <script>
-        function openAddForm(type) {
+        const categorySelect = document.getElementById('categorySelect');
+        const allOptions = Array.from(categorySelect.options);
+
+        function setType(type) {
             document.getElementById('typeField').value = type;
             document.getElementById('addFormTitle').innerText = type === 'income' ? 'Add Income' : 'Add Expense';
+
+            const incomeBtn = document.getElementById('incomeToggle');
+            const expenseBtn = document.getElementById('expenseToggle');
+            incomeBtn.classList.remove('active', 'income-active');
+            expenseBtn.classList.remove('active', 'expense-active');
+            if (type === 'income') {
+                incomeBtn.classList.add('active', 'income-active');
+            } else {
+                expenseBtn.classList.add('active', 'expense-active');
+            }
+
+            allOptions.forEach(opt => {
+                opt.hidden = opt.dataset.type !== type;
+            });
+            const firstMatch = allOptions.find(opt => opt.dataset.type === type);
+            if (firstMatch) categorySelect.value = firstMatch.value;
+        }
+
+        function openAddForm() {
             const wrapper = document.getElementById('addFormWrapper');
             wrapper.style.display = 'block';
+            setType('expense');
             wrapper.scrollIntoView({ behavior: 'smooth' });
             document.getElementById('amountField').focus();
         }
