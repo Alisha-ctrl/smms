@@ -82,7 +82,6 @@ $transactions = mysqli_query($conn, $sql);
     </form>
 
     <div class="action-buttons">
-        <a class="btn-csv" href="export_csv.php?from=<?php echo $from; ?>&to=<?php echo $to; ?>">Download CSV</a>
         <a class="btn-print" href="#" onclick="window.print(); return false;">Print / Save as PDF</a>
     </div>
 
