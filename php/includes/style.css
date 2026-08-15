@@ -1,15 +1,20 @@
 /* ============================================================
    SMMS - Shared Stylesheet
-   Color palette (Monefy-inspired):
-   #219653 - primary green   -> navbar, buttons, positive amounts
-   #1B7943 - dark green      -> hover states
-   #E74C3C - red             -> negative amounts, expense
-   #F2FBF6 - pale green      -> page background
+   Color palette:
+   #769FCD - primary blue    -> navbar, buttons, positive/brand elements
+   #5A80AC - dark blue       -> hover states (darkened from #769FCD)
+   #B9D7EA - light blue      -> secondary accents
+   #D6E6F2 - pale blue       -> borders, dividers
+   #F7FBFC - near-white blue -> page background
+   #219653 - green           -> income / positive amounts (kept separate,
+                                 universal "money in" convention)
+   #E74C3C - red             -> expense / negative amounts (kept separate,
+                                 universal "money out" convention)
    ============================================================ */
 
 body {
     font-family: Arial, sans-serif;
-    background-color: #F2FBF6;
+    background-color: #F7FBFC;
     color: #333333;
     margin: 0;
     padding: 20px;
@@ -26,21 +31,21 @@ p {
 }
 
 h2 {
-    color: #1B3A2B;
+    color: #1B3A4B;
     font-size: 28px;
     font-weight: bold;
     margin-bottom: 20px;
 }
 
 h3 {
-    color: #1B3A2B;
+    color: #1B3A4B;
     font-size: 20px;
     font-weight: bold;
 }
 
 /* ---- Navigation bar ---- */
 nav {
-    background-color: #219653;
+    background-color: #769FCD;
     margin: -20px -20px 20px -20px;
     padding: 0 20px;
 }
@@ -64,14 +69,14 @@ nav ul li a {
 }
 
 nav ul li a:hover {
-    background-color: #1B7943;
+    background-color: #5A80AC;
 }
 
 /* ---- Forms ---- */
 form {
     background-color: #ffffff;
     padding: 20px;
-    border: 1px solid #BEE3CE;
+    border: 1px solid #D6E6F2;
     border-radius: 4px;
     margin-bottom: 20px;
 }
@@ -80,14 +85,14 @@ input,
 select {
     padding: 8px;
     margin-bottom: 10px;
-    border: 1px solid #BEE3CE;
+    border: 1px solid #D6E6F2;
     border-radius: 4px;
     width: 250px;
 }
 
 /* ---- Buttons ---- */
 button {
-    background-color: #219653;
+    background-color: #769FCD;
     color: #ffffff;
     padding: 10px 20px;
     border: none;
@@ -97,7 +102,7 @@ button {
 }
 
 button:hover {
-    background-color: #1B7943;
+    background-color: #5A80AC;
 }
 
 /* ---- Tables ---- */
@@ -109,7 +114,7 @@ table {
 }
 
 th {
-    background-color: #219653;
+    background-color: #769FCD;
     color: #ffffff;
     padding: 10px;
     text-align: left;
@@ -117,16 +122,16 @@ th {
 
 td {
     padding: 10px;
-    border-bottom: 1px solid #BEE3CE;
+    border-bottom: 1px solid #D6E6F2;
 }
 
 tr:hover {
-    background-color: #F2FBF6;
+    background-color: #F7FBFC;
 }
 
 /* ---- Links inside tables (Edit / Delete) ---- */
 td a {
-    color: #219653;
+    color: #769FCD;
     text-decoration: none;
     margin-right: 8px;
     font-weight: bold;
@@ -141,7 +146,7 @@ p {
     color: #333333;
 }
 
-/* ---- Amount coloring, usable on any page ---- */
+/* ---- Amount coloring (kept as green/red - universal finance convention) ---- */
 .amount-income {
     color: #219653;
     font-weight: bold;

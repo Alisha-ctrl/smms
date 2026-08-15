@@ -58,7 +58,7 @@ $budgets = mysqli_query($conn, $sql);
         .budget-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
         .budget-left { display: flex; align-items: center; gap: 12px; }
         .budget-icon {
-            width: 36px; height: 36px; border-radius: 50%; background: #F2FBF6; color: #219653;
+            width: 36px; height: 36px; border-radius: 50%; background: #F7FBFC; color: #769FCD;
             display: flex; align-items: center; justify-content: center; font-size: 16px;
         }
         .budget-amounts { font-size: 13px; color: #666666; }
@@ -72,8 +72,8 @@ $budgets = mysqli_query($conn, $sql);
 
         .fab-wrapper { position: fixed; bottom: 25px; left: 0; right: 0; display: flex; justify-content: center; }
         .fab {
-            width: 60px; height: 60px; border-radius: 50%; border: 3px solid #219653; background: #ffffff;
-            color: #219653; font-size: 28px; display: flex; align-items: center; justify-content: center;
+            width: 60px; height: 60px; border-radius: 50%; border: 3px solid #769FCD; background: #ffffff;
+            color: #769FCD; font-size: 28px; display: flex; align-items: center; justify-content: center;
             cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
         #addFormWrapper { max-width: 500px; margin: 0 auto 100px auto; }

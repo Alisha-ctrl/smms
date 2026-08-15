@@ -6,6 +6,7 @@ include "../includes/icons.php";
 $user_id = $_SESSION["user_id"];
 $this_month = date('n');
 $this_year = date('Y');
+$month_name = date('F Y');
 
 $sql = "SELECT
             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
@@ -32,18 +33,33 @@ $result = mysqli_query($conn, $sql);
 
 $chart_labels = [];
 $chart_values = [];
+$category_breakdown = [];
 while ($row = mysqli_fetch_assoc($result)) {
     $chart_labels[] = $row['category_name'];
     $chart_values[] = $row['total'];
+    $category_breakdown[] = $row;
 }
+
+$sql = "SELECT b.*, c.category_name,
+        COALESCE((SELECT SUM(t.amount) FROM transactions t
+                  WHERE t.category_id = b.category_id AND t.user_id = b.user_id
+                  AND t.type = 'expense' AND MONTH(t.transaction_date) = b.month AND YEAR(t.transaction_date) = b.year), 0) AS spent
+        FROM budgets b
+        JOIN categories c ON b.category_id = c.category_id
+        WHERE b.user_id = $user_id AND b.month = $this_month AND b.year = $this_year
+        ORDER BY b.budget_id DESC
+        LIMIT 2";
+$budget_widget = mysqli_query($conn, $sql);
 
 $sql = "SELECT t.*, c.category_name
         FROM transactions t
         JOIN categories c ON t.category_id = c.category_id
         WHERE t.user_id = $user_id
         ORDER BY t.transaction_date DESC, t.transaction_id DESC
-        LIMIT 5";
+        LIMIT 6";
 $recent = mysqli_query($conn, $sql);
+
+$palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#C97B4A', '#34495E'];
 ?>
 <!DOCTYPE html>
 <html>
@@ -55,53 +71,114 @@ $recent = mysqli_query($conn, $sql);
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
     <style>
-        .summary-card { border-radius: 10px; padding: 20px; color: #ffffff; }
-        .summary-card .label { font-size: 14px; opacity: 0.85; }
-        .summary-card .value { font-size: 26px; font-weight: bold; margin-top: 5px; }
-        .bg-income { background-color: #219653; }
-        .bg-expense { background-color: #E74C3C; }
-        .bg-balance { background-color: #1B7943; }
-        .chart-card, .recent-card { background: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-        .recent-icon {
-            width: 32px; height: 32px; border-radius: 50%; background: #F2FBF6; color: #219653;
-            display: inline-flex; align-items: center; justify-content: center; font-size: 14px; margin-right: 10px;
+        .page-wrap { max-width: 1050px; margin: 30px auto; padding: 0 15px; }
+
+        .hero-card { position: relative; overflow: hidden; border-radius: 16px; padding: 22px; color: #ffffff; }
+        .hero-card::after {
+            content: ""; position: absolute; top: -30px; right: -30px; width: 100px; height: 100px;
+            border-radius: 50%; background: rgba(255,255,255,0.15);
         }
+        .hero-card .hc-label { font-size: 13px; opacity: 0.9; }
+        .hero-card .hc-value { font-size: 28px; font-weight: bold; margin-top: 6px; }
+        .hero-earned { background: linear-gradient(135deg, #2FAE73, #1B7943); }
+        .hero-spent { background: linear-gradient(135deg, #EB6B5D, #C0392B); }
+        .hero-balance { background: linear-gradient(135deg, #8FB7DE, #5A80AC); }
+
+        .card-block { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+
+        .legend-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+        .legend-left { display: flex; align-items: center; gap: 8px; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .legend-percent { color: #999999; margin-left: 6px; }
+
+        .top-cat-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+        .top-cat-item { text-align: center; width: 70px; }
+        .top-cat-icon {
+            width: 50px; height: 50px; border-radius: 14px; background: #F7FBFC; color: #769FCD;
+            display: flex; align-items: center; justify-content: center; font-size: 20px; margin: 0 auto 6px auto;
+        }
+        .top-cat-item span { font-size: 11px; color: #555555; }
+
+        .budget-mini { margin-bottom: 16px; }
+        .budget-mini:last-child { margin-bottom: 0; }
+        .budget-mini-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+        .progress-track { background: #EFEFEF; border-radius: 20px; height: 8px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 20px; }
+        .fill-ok { background-color: #219653; }
+        .fill-warning { background-color: #E9B949; }
+        .fill-over { background-color: #E74C3C; }
+        .budget-status { font-size: 12px; margin-top: 4px; }
+        .status-ok { color: #219653; }
+        .status-warning { color: #B8860B; }
+        .status-over { color: #E74C3C; }
+
+        .txn-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F0F0F0; }
+        .txn-row:last-child { border-bottom: none; }
+        .txn-left { display: flex; align-items: center; gap: 10px; }
+        .txn-icon {
+            width: 38px; height: 38px; border-radius: 50%; background: #F7FBFC; color: #769FCD;
+            display: flex; align-items: center; justify-content: center; font-size: 16px;
+        }
+        .txn-name { font-size: 14px; }
+        .txn-date { font-size: 11px; color: #999999; }
+        .txn-amount { display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 14px; }
+        .direction-income { color: #219653; }
+        .direction-expense { color: #E74C3C; }
     </style>
 </head>
 <body>
     <?php include "../includes/nav.php"; ?>
 
-    <div class="container" style="max-width: 1000px; margin: 30px auto;">
+    <div class="page-wrap">
         <h2>Dashboard</h2>
-        <p class="text-muted">Welcome back, <?php echo htmlspecialchars($_SESSION["full_name"]); ?> - here's your snapshot for this month.</p>
+        <p class="text-muted">Welcome back, <?php echo htmlspecialchars($_SESSION["full_name"]); ?> - here's <?php echo $month_name; ?> at a glance.</p>
 
         <div class="row g-3 mb-4">
             <div class="col-md-4">
-                <div class="summary-card bg-income">
-                    <div class="label">Income</div>
-                    <div class="value">Rs. <?php echo number_format($income, 2); ?></div>
+                <div class="hero-card hero-earned">
+                    <div class="hc-label"><i class="bi bi-arrow-up-circle-fill"></i> Earned</div>
+                    <div class="hc-value">Rs. <?php echo number_format($income, 2); ?></div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="summary-card bg-expense">
-                    <div class="label">Expenses</div>
-                    <div class="value">Rs. <?php echo number_format($expense, 2); ?></div>
+                <div class="hero-card hero-spent">
+                    <div class="hc-label"><i class="bi bi-arrow-down-circle-fill"></i> Spent</div>
+                    <div class="hc-value">Rs. <?php echo number_format($expense, 2); ?></div>
                 </div>
             </div>
             <div class="col-md-4">
-                <div class="summary-card bg-balance">
-                    <div class="label">Balance</div>
-                    <div class="value">Rs. <?php echo number_format($balance, 2); ?></div>
+                <div class="hero-card hero-balance">
+                    <div class="hc-label"><i class="bi bi-wallet2"></i> Balance</div>
+                    <div class="hc-value">Rs. <?php echo number_format($balance, 2); ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-3">
+        <div class="row g-3 mb-3">
             <div class="col-md-6">
-                <div class="chart-card">
-                    <h5>Spending by Category</h5>
+                <div class="card-block">
+                    <h5>Where it went</h5>
                     <?php if (count($chart_labels) > 0) { ?>
-                        <canvas id="spendingChart" height="220"></canvas>
+                        <canvas id="spendingChart" height="180"></canvas>
+                        <div class="mt-3">
+                            <?php
+                            $total_for_percent = array_sum($chart_values);
+                            foreach ($category_breakdown as $i => $cat) {
+                                $pct = $total_for_percent > 0 ? round(($cat['total'] / $total_for_percent) * 100) : 0;
+                                $color = $palette[$i % count($palette)];
+                            ?>
+                                <div class="legend-row">
+                                    <div class="legend-left">
+                                        <span class="legend-dot" style="background: <?php echo $color; ?>;"></span>
+                                        <?php echo htmlspecialchars($cat['category_name']); ?>
+                                    </div>
+                                    <div>
+                                        Rs. <?php echo number_format($cat['total'], 2); ?>
+                                        <span class="legend-percent">(<?php echo $pct; ?>%)</span>
+                                    </div>
+                                </div>
+                            <?php } ?>
+                        </div>
                     <?php } else { ?>
                         <p class="text-muted">No expenses recorded yet this month.</p>
                     <?php } ?>
@@ -109,31 +186,69 @@ $recent = mysqli_query($conn, $sql);
             </div>
 
             <div class="col-md-6">
-                <div class="recent-card">
-                    <h5>Recent Transactions</h5>
-                    <?php if (mysqli_num_rows($recent) > 0) { ?>
-                        <ul class="list-group list-group-flush">
-                            <?php while ($row = mysqli_fetch_assoc($recent)) { ?>
-                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                    <span>
-                                        <span class="recent-icon"><i class="bi <?php echo category_icon($row['category_name']); ?>"></i></span>
-                                        <?php echo htmlspecialchars($row['category_name']); ?>
-                                        <br><small class="text-muted" style="margin-left:42px;"><?php echo $row['transaction_date']; ?></small>
-                                    </span>
-                                    <span class="<?php echo $row['type'] == 'income' ? 'text-success' : 'text-danger'; ?> fw-bold">
-                                        <?php echo $row['type'] == 'income' ? '+' : '-'; ?> Rs. <?php echo number_format($row['amount'], 2); ?>
-                                    </span>
-                                </li>
-                            <?php } ?>
-                        </ul>
-                    <?php } else { ?>
-                        <p class="text-muted">No transactions yet. <a href="../transactions/transactions.php">Add your first one</a>.</p>
-                    <?php } ?>
+                <div class="card-block">
+                    <h5>Budget Status</h5>
+                    <?php if (mysqli_num_rows($budget_widget) === 0) { ?>
+                        <p class="text-muted">No budgets set for this month yet. <a href="../budgets/budgets.php">Add one</a>.</p>
+                    <?php } else { while ($b = mysqli_fetch_assoc($budget_widget)) {
+                        $spent = $b['spent']; $budget = $b['budget_amount'];
+                        $percent = $budget > 0 ? min(100, round(($spent / $budget) * 100)) : 0;
+                        if ($spent > $budget) { $fill = 'fill-over'; $status = 'status-over'; $msg = 'Over budget'; $icon = 'bi-exclamation-circle-fill'; }
+                        elseif ($percent >= 80) { $fill = 'fill-warning'; $status = 'status-warning'; $msg = 'Approaching limit'; $icon = 'bi-exclamation-triangle-fill'; }
+                        else { $fill = 'fill-ok'; $status = 'status-ok'; $msg = 'On track'; $icon = 'bi-check-circle-fill'; }
+                    ?>
+                        <div class="budget-mini">
+                            <div class="budget-mini-top">
+                                <span><?php echo htmlspecialchars($b['category_name']); ?></span>
+                                <span>Rs. <?php echo number_format($spent, 2); ?> / <?php echo number_format($budget, 2); ?></span>
+                            </div>
+                            <div class="progress-track"><div class="progress-fill <?php echo $fill; ?>" style="width: <?php echo $percent; ?>%;"></div></div>
+                            <div class="budget-status <?php echo $status; ?>"><i class="bi <?php echo $icon; ?>"></i> <?php echo $msg; ?></div>
+                        </div>
+                    <?php } } ?>
+                    <p class="mt-2 mb-0"><a href="../budgets/budgets.php" style="font-size:13px;">Manage all budgets &rarr;</a></p>
                 </div>
             </div>
         </div>
 
-        <div class="mt-4">
+        <?php if (count($category_breakdown) > 0) { ?>
+        <div class="card-block mb-3">
+            <h5>Top Categories</h5>
+            <div class="top-cat-row">
+                <?php foreach (array_slice($category_breakdown, 0, 5) as $cat) { ?>
+                    <div class="top-cat-item">
+                        <div class="top-cat-icon"><i class="bi <?php echo category_icon($cat['category_name']); ?>"></i></div>
+                        <span><?php echo htmlspecialchars($cat['category_name']); ?></span>
+                    </div>
+                <?php } ?>
+            </div>
+        </div>
+        <?php } ?>
+
+        <div class="card-block">
+            <h5>Recent Transactions</h5>
+            <?php if (mysqli_num_rows($recent) > 0) { ?>
+                <?php while ($row = mysqli_fetch_assoc($recent)) { ?>
+                    <div class="txn-row">
+                        <div class="txn-left">
+                            <div class="txn-icon"><i class="bi <?php echo category_icon($row['category_name']); ?>"></i></div>
+                            <div>
+                                <div class="txn-name"><?php echo htmlspecialchars($row['category_name']); ?></div>
+                                <div class="txn-date"><?php echo $row['transaction_date']; ?></div>
+                            </div>
+                        </div>
+                        <div class="txn-amount <?php echo $row['type'] == 'income' ? 'direction-income' : 'direction-expense'; ?>">
+                            <i class="bi <?php echo $row['type'] == 'income' ? 'bi-arrow-up-circle-fill' : 'bi-arrow-down-circle-fill'; ?>"></i>
+                            Rs. <?php echo number_format($row['amount'], 2); ?>
+                        </div>
+                    </div>
+                <?php } ?>
+            <?php } else { ?>
+                <p class="text-muted">No transactions yet. <a href="../transactions/transactions.php">Add your first one</a>.</p>
+            <?php } ?>
+        </div>
+
+        <div class="mt-4 mb-4">
             <a href="../transactions/transactions.php" class="btn btn-outline-secondary btn-sm">View All Transactions</a>
             <a href="../budgets/budgets.php" class="btn btn-outline-secondary btn-sm">Manage Budgets</a>
             <a href="../insights/insights.php" class="btn btn-outline-secondary btn-sm">View Insights</a>
@@ -144,12 +259,12 @@ $recent = mysqli_query($conn, $sql);
     <script>
         const labels = <?php echo json_encode($chart_labels); ?>;
         const values = <?php echo json_encode($chart_values); ?>;
-        const colors = ['#219653', '#E74C3C', '#E9B949', '#8E44AD', '#2980B9', '#16A085', '#C97B4A', '#34495E'];
+        const colors = <?php echo json_encode($palette); ?>;
 
         new Chart(document.getElementById('spendingChart'), {
             type: 'doughnut',
-            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length) }] },
-            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2 }] },
+            options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
         });
     </script>
     <?php } ?>

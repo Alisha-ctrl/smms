@@ -93,11 +93,11 @@ uasort($groups, function($a, $b) {
         .category-header .left { display: flex; align-items: center; gap: 12px; }
         .category-icon {
             width: 36px; height: 36px; border-radius: 50%;
-            background: #F2FBF6; color: #219653;
+            background: #F7FBFC; color: #769FCD;
             display: flex; align-items: center; justify-content: center; font-size: 16px;
         }
         .category-count {
-            background: #219653; color: #ffffff; border-radius: 50%;
+            background: #769FCD; color: #ffffff; border-radius: 50%;
             width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;
         }
         .category-total.income { color: #219653; font-weight: bold; }
