@@ -62,7 +62,6 @@ while ($row = mysqli_fetch_assoc($result2)) {
 <head>
     <title>Budget Predictions - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
         .predict-card {
@@ -99,7 +98,7 @@ while ($row = mysqli_fetch_assoc($result2)) {
         <div class="predict-card">
             <div class="predict-top">
                 <div class="predict-left">
-                    <span class="predict-icon"><i class="bi <?php echo category_icon($category_name); ?>"></i></span>
+                    <span class="predict-icon"><?php echo category_icon($category_name); ?></span>
                     <span><?php echo htmlspecialchars($category_name); ?></span>
                 </div>
                 <span class="predict-value">~ Rs. <?php echo number_format($predicted_amount, 2); ?></span>
@@ -109,12 +108,12 @@ while ($row = mysqli_fetch_assoc($result2)) {
                 $budget = $budgets_by_category[$category_name];
                 if ($predicted_amount > $budget) { ?>
                     <div class="predict-note note-warning">
-                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        ⚠️
                         This is above your Rs. <?php echo number_format($budget, 2); ?> budget for this category - consider adjusting your spending or your budget.
                     </div>
                 <?php } else { ?>
                     <div class="predict-note note-ok">
-                        <i class="bi bi-check-circle-fill"></i>
+                        ✅
                         This is within your Rs. <?php echo number_format($budget, 2); ?> budget for this category.
                     </div>
                 <?php }

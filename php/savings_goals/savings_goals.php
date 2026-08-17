@@ -31,9 +31,6 @@ $goals = mysqli_query($conn, $sql);
 <head>
     <title>Savings Goals - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 
     <style>
         .goal-card {
@@ -85,7 +82,7 @@ $goals = mysqli_query($conn, $sql);
         <div class="goal-card">
             <div class="goal-top">
                 <div class="goal-left">
-                    <span class="goal-icon"><i class="bi <?php echo goal_icon(); ?>"></i></span>
+                    <span class="goal-icon"><?php echo goal_icon(); ?></span>
                     <div>
                         <div>
                             <?php echo htmlspecialchars($row['goal_name']); ?>

@@ -123,9 +123,6 @@ uasort($groups, function($a, $b) {
 <head>
     <title>Transactions - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 
     <style>
         .balance-pill {
@@ -143,9 +140,8 @@ uasort($groups, function($a, $b) {
         .category-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; cursor: pointer; }
         .category-header .left { display: flex; align-items: center; gap: 12px; }
         .category-icon {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: #F7FBFC; color: #769FCD;
-            display: flex; align-items: center; justify-content: center; font-size: 16px;
+            width: 36px; height: 36px; border-radius: 50%; background: #F7FBFC;
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
         }
         .category-count {
             background: #769FCD; color: #ffffff; border-radius: 50%;
@@ -154,25 +150,21 @@ uasort($groups, function($a, $b) {
         .category-total.income { color: #219653; font-weight: bold; }
         .category-total.expense { color: #E74C3C; font-weight: bold; }
 
+        /* Starts hidden - shown/hidden by plain JS below, no library needed */
+        .item-list { display: none; }
         .item-row { display: flex; justify-content: space-between; padding: 8px 16px 8px 60px; border-top: 1px solid #F0F0F0; font-size: 14px; }
         .item-row .item-date { color: #999999; font-size: 12px; }
         .item-row .item-actions a { font-size: 12px; margin-left: 8px; }
 
-        .fab-wrapper { position: fixed; bottom: 25px; left: 0; right: 0; display: flex; justify-content: center; }
+        .fab-wrapper { position: fixed; bottom: 25px; left: 0; right: 0; display: flex; justify-content: center; gap: 30px; }
         .fab {
-            width: 60px; height: 60px; border-radius: 50%; border: none; background: #219653;
-            color: #ffffff; font-size: 28px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            width: 60px; height: 60px; border-radius: 50%; border: 3px solid; background: #ffffff;
+            font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
-
-        #addFormWrapper { max-width: 500px; margin: 0 auto 100px auto; background: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .type-toggle { display: flex; gap: 10px; margin-bottom: 20px; }
-        .type-toggle button {
-            flex: 1; padding: 12px; border-radius: 8px; border: 2px solid #DDDDDD;
-            background: #ffffff; color: #666666; font-weight: bold; cursor: pointer; font-size: 15px;
-        }
-        .type-toggle button.active.income-active { border-color: #219653; background: #F2FBF6; color: #219653; }
-        .type-toggle button.active.expense-active { border-color: #E74C3C; background: #FDEDEB; color: #E74C3C; }
+        .fab-expense { border-color: #E74C3C; color: #E74C3C; }
+        .fab-income { border-color: #219653; color: #219653; }
+        #addFormWrapper { max-width: 500px; margin: 0 auto 100px auto; }
     </style>
 </head>
 <body>
@@ -186,14 +178,14 @@ uasort($groups, function($a, $b) {
     <?php if ($message) echo "<p style='text-align:center;'>$message</p>"; ?>
 
     <?php if (count($groups) === 0) { ?>
-        <p style="text-align:center; color:#888;">No transactions yet this month. Tap the button below to add one.</p>
+        <p style="text-align:center; color:#888;">No transactions yet this month. Use the buttons below to add one.</p>
     <?php } ?>
 
-    <?php foreach ($groups as $cid => $group) { $collapseId = "group-" . $cid; ?>
+    <?php foreach ($groups as $cid => $group) { $groupId = "group-" . $cid; ?>
         <div class="category-group">
-            <div class="category-header" data-bs-toggle="collapse" data-bs-target="#<?php echo $collapseId; ?>">
+            <div class="category-header" onclick="toggleGroup('<?php echo $groupId; ?>')">
                 <div class="left">
-                    <span class="category-icon"><i class="bi <?php echo category_icon($group['name']); ?>"></i></span>
+                    <span class="category-icon"><?php echo category_icon($group['name']); ?></span>
                     <span><?php echo htmlspecialchars($group['name']); ?></span>
                     <span class="category-count"><?php echo count($group['items']); ?></span>
                 </div>
@@ -201,7 +193,7 @@ uasort($groups, function($a, $b) {
                     <?php echo $group['type'] == 'income' ? '+' : '-'; ?> Rs. <?php echo number_format($group['total'], 2); ?>
                 </span>
             </div>
-            <div class="collapse" id="<?php echo $collapseId; ?>">
+            <div class="item-list" id="<?php echo $groupId; ?>">
                 <?php foreach ($group['items'] as $item) { ?>
                     <div class="item-row">
                         <span>
@@ -224,21 +216,13 @@ uasort($groups, function($a, $b) {
     <?php } ?>
 
     <div id="addFormWrapper" style="display:none;">
-        <h3 id="addFormTitle" style="text-align:center; margin-top:0;">Add Transaction</h3>
-
-        <div class="type-toggle">
-            <button type="button" id="incomeToggle" onclick="setType('income')">Income</button>
-            <button type="button" id="expenseToggle" onclick="setType('expense')">Expense</button>
-        </div>
-
+        <h3 id="addFormTitle" style="text-align:center;">Add Transaction</h3>
         <form method="POST" action="transactions.php">
             <input type="hidden" name="type" id="typeField" value="expense">
             Category:
-            <select name="category_id" id="categorySelect">
+            <select name="category_id">
                 <?php mysqli_data_seek($categories, 0); while ($cat = mysqli_fetch_assoc($categories)) { ?>
-                    <option value="<?php echo $cat['category_id']; ?>" data-type="<?php echo $cat['category_type']; ?>">
-                        <?php echo htmlspecialchars($cat['category_name']); ?>
-                    </option>
+                    <option value="<?php echo $cat['category_id']; ?>"><?php echo $cat['category_name']; ?></option>
                 <?php } ?>
             </select><br><br>
             Amount: <input type="number" step="0.01" name="amount" id="amountField" required><br><br>
@@ -249,38 +233,27 @@ uasort($groups, function($a, $b) {
     </div>
 
     <div class="fab-wrapper">
-        <div class="fab" onclick="openAddForm()">+</div>
+        <div class="fab fab-expense" onclick="openAddForm('expense')">−</div>
+        <div class="fab fab-income" onclick="openAddForm('income')">+</div>
     </div>
 
     <script>
-        const categorySelect = document.getElementById('categorySelect');
-        const allOptions = Array.from(categorySelect.options);
-
-        function setType(type) {
-            document.getElementById('typeField').value = type;
-            document.getElementById('addFormTitle').innerText = type === 'income' ? 'Add Income' : 'Add Expense';
-
-            const incomeBtn = document.getElementById('incomeToggle');
-            const expenseBtn = document.getElementById('expenseToggle');
-            incomeBtn.classList.remove('active', 'income-active');
-            expenseBtn.classList.remove('active', 'expense-active');
-            if (type === 'income') {
-                incomeBtn.classList.add('active', 'income-active');
+        // Plain JavaScript - shows/hides a category's transaction list when clicked.
+        // No library needed: just toggles the CSS display property directly.
+        function toggleGroup(groupId) {
+            var el = document.getElementById(groupId);
+            if (el.style.display === "block") {
+                el.style.display = "none";
             } else {
-                expenseBtn.classList.add('active', 'expense-active');
+                el.style.display = "block";
             }
-
-            allOptions.forEach(opt => {
-                opt.hidden = opt.dataset.type !== type;
-            });
-            const firstMatch = allOptions.find(opt => opt.dataset.type === type);
-            if (firstMatch) categorySelect.value = firstMatch.value;
         }
 
-        function openAddForm() {
-            const wrapper = document.getElementById('addFormWrapper');
+        function openAddForm(type) {
+            document.getElementById('typeField').value = type;
+            document.getElementById('addFormTitle').innerText = type === 'income' ? 'Add Income' : 'Add Expense';
+            var wrapper = document.getElementById('addFormWrapper');
             wrapper.style.display = 'block';
-            setType('expense');
             wrapper.scrollIntoView({ behavior: 'smooth' });
             document.getElementById('amountField').focus();
         }

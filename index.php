@@ -15,7 +15,6 @@ if (isset($_SESSION["user_id"])) {
 <head>
     <title>Smart Money Management System</title>
     <link rel="stylesheet" href="php/includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
         body { padding: 0; margin: 0; }
@@ -201,17 +200,17 @@ if (isset($_SESSION["user_id"])) {
                 <h2>Get Started</h2>
 
                 <a href="php/auth/login.php" class="pill-btn">
-                    <i class="bi bi-box-arrow-in-right"></i> Login
+                    🔑 Login
                 </a>
 
                 <a href="php/auth/register.php" class="pill-btn">
-                    <i class="bi bi-person-plus-fill"></i> Create an Account
+                    ➕ Create an Account
                 </a>
 
                 <div class="divider">or</div>
 
                 <a href="php/admin/admin_login.php" class="pill-btn pill-btn-solid">
-                    <i class="bi bi-shield-lock-fill"></i> Admin Login
+                    🛡️ Admin Login
                 </a>
             </div>
         </div>
@@ -222,19 +221,19 @@ if (isset($_SESSION["user_id"])) {
         <h2>What You Can Do</h2>
         <div class="info-grid">
             <div class="info-box">
-                <div class="default-view"><div class="icon"><i class="bi bi-cash-coin"></i></div><h3>Income & Expenses</h3></div>
+                <div class="default-view"><div class="icon">💰</div><h3>Income & Expenses</h3></div>
                 <div class="detail-view">Log every transaction with a category, amount, and date to build a real history of your finances.</div>
             </div>
             <div class="info-box">
-                <div class="default-view"><div class="icon"><i class="bi bi-pie-chart-fill"></i></div><h3>Budgets</h3></div>
+                <div class="default-view"><div class="icon">📊</div><h3>Budgets</h3></div>
                 <div class="detail-view">Set a monthly spending limit per category and track how close you are to going over.</div>
             </div>
             <div class="info-box">
-                <div class="default-view"><div class="icon"><i class="bi bi-piggy-bank-fill"></i></div><h3>Savings Goals</h3></div>
+                <div class="default-view"><div class="icon">🐷</div><h3>Savings Goals</h3></div>
                 <div class="detail-view">Set a target amount for what you're saving toward and watch your progress grow.</div>
             </div>
             <div class="info-box">
-                <div class="default-view"><div class="icon"><i class="bi bi-lightbulb-fill"></i></div><h3>Insights</h3></div>
+                <div class="default-view"><div class="icon">💡</div><h3>Insights</h3></div>
                 <div class="detail-view">Get plain-English summaries of your spending patterns, budget status, and goal progress.</div>
             </div>
         </div>

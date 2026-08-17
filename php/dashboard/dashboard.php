@@ -31,15 +31,29 @@ $sql = "SELECT c.category_name, SUM(t.amount) AS total
         ORDER BY total DESC";
 $result = mysqli_query($conn, $sql);
 
-$chart_labels = [];
-$chart_values = [];
 $category_breakdown = [];
 while ($row = mysqli_fetch_assoc($result)) {
-    $chart_labels[] = $row['category_name'];
-    $chart_values[] = $row['total'];
     $category_breakdown[] = $row;
 }
 
+// ---- Build a pure CSS conic-gradient donut chart - no charting library ----
+// A conic-gradient paints colored "slices" around a circle based on percentage
+// ranges, e.g. conic-gradient(red 0% 30%, blue 30% 100%) paints a pie/donut.
+$palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#C97B4A', '#34495E'];
+$total_expense_for_chart = array_sum(array_column($category_breakdown, 'total'));
+$gradient_stops = [];
+$running_percent = 0;
+foreach ($category_breakdown as $i => $cat) {
+    $slice_percent = $total_expense_for_chart > 0 ? ($cat['total'] / $total_expense_for_chart) * 100 : 0;
+    $color = $palette[$i % count($palette)];
+    $start = $running_percent;
+    $end = $running_percent + $slice_percent;
+    $gradient_stops[] = "$color {$start}% {$end}%";
+    $running_percent = $end;
+}
+$conic_gradient = implode(', ', $gradient_stops);
+
+// ---- Budgets for this month, with spending calculated ----
 $sql = "SELECT b.*, c.category_name,
         COALESCE((SELECT SUM(t.amount) FROM transactions t
                   WHERE t.category_id = b.category_id AND t.user_id = b.user_id
@@ -58,24 +72,20 @@ $sql = "SELECT t.*, c.category_name
         ORDER BY t.transaction_date DESC, t.transaction_id DESC
         LIMIT 6";
 $recent = mysqli_query($conn, $sql);
-
-// ---- Unread budget alerts for this user ----
-$alerts_sql = "SELECT * FROM budget_alerts WHERE user_id = $user_id AND is_read = 0 ORDER BY created_at DESC";
-$alerts = mysqli_query($conn, $alerts_sql);
-
-$palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#C97B4A', '#34495E'];
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Dashboard - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 
     <style>
         .page-wrap { max-width: 1050px; margin: 30px auto; padding: 0 15px; }
+
+        /* ---- Custom flexbox grid, replacing Bootstrap's row/col ---- */
+        .grid-row { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        .grid-col-3 { flex: 1 1 220px; }
+        .grid-col-6 { flex: 1 1 400px; }
 
         .hero-card { position: relative; overflow: hidden; border-radius: 16px; padding: 22px; color: #ffffff; }
         .hero-card::after {
@@ -83,32 +93,34 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
             border-radius: 50%; background: rgba(255,255,255,0.15);
         }
         .hero-card .hc-label { font-size: 13px; opacity: 0.9; }
-        .hero-card .hc-value { font-size: 28px; font-weight: bold; margin-top: 6px; }
+        .hero-card .hc-value { font-size: 26px; font-weight: bold; margin-top: 6px; }
         .hero-earned { background: linear-gradient(135deg, #2FAE73, #1B7943); }
         .hero-spent { background: linear-gradient(135deg, #EB6B5D, #C0392B); }
         .hero-balance { background: linear-gradient(135deg, #8FB7DE, #5A80AC); }
 
         .card-block { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
 
-        .alert-row {
-            display: flex; align-items: flex-start; gap: 10px; padding: 10px 0;
-            border-bottom: 1px solid #F0F0F0; font-size: 14px;
+        /* ---- Pure CSS donut chart ---- */
+        .donut-chart {
+            width: 160px; height: 160px; border-radius: 50%;
+            margin: 10px auto;
+            position: relative;
         }
-        .alert-row:last-child { border-bottom: none; }
-        .alert-icon { color: #E74C3C; font-size: 18px; margin-top: 2px; }
-        .alert-dismiss { font-size: 12px; color: #999999; text-decoration: none; white-space: nowrap; }
-        .alert-dismiss:hover { color: #769FCD; }
+        .donut-chart .donut-hole {
+            position: absolute; top: 25px; left: 25px; width: 110px; height: 110px;
+            background: #ffffff; border-radius: 50%;
+        }
 
         .legend-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; font-size: 13px; }
         .legend-left { display: flex; align-items: center; gap: 8px; }
-        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
         .legend-percent { color: #999999; margin-left: 6px; }
 
         .top-cat-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
         .top-cat-item { text-align: center; width: 70px; }
         .top-cat-icon {
-            width: 50px; height: 50px; border-radius: 14px; background: #F7FBFC; color: #769FCD;
-            display: flex; align-items: center; justify-content: center; font-size: 20px; margin: 0 auto 6px auto;
+            width: 50px; height: 50px; border-radius: 14px; background: #F7FBFC;
+            display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 6px auto;
         }
         .top-cat-item span { font-size: 11px; color: #555555; }
 
@@ -129,14 +141,21 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
         .txn-row:last-child { border-bottom: none; }
         .txn-left { display: flex; align-items: center; gap: 10px; }
         .txn-icon {
-            width: 38px; height: 38px; border-radius: 50%; background: #F7FBFC; color: #769FCD;
-            display: flex; align-items: center; justify-content: center; font-size: 16px;
+            width: 38px; height: 38px; border-radius: 50%; background: #F7FBFC;
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
         }
         .txn-name { font-size: 14px; }
         .txn-date { font-size: 11px; color: #999999; }
-        .txn-amount { display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 14px; }
+        .txn-amount { font-weight: bold; font-size: 14px; }
         .direction-income { color: #219653; }
         .direction-expense { color: #E74C3C; }
+
+        .quick-links { margin-top: 15px; margin-bottom: 30px; }
+        .quick-links a {
+            display: inline-block; padding: 8px 16px; margin-right: 10px; margin-bottom: 8px;
+            border: 1px solid #D6E6F2; border-radius: 6px; color: #769FCD; text-decoration: none; font-size: 13px;
+        }
+        .quick-links a:hover { background: #F7FBFC; }
     </style>
 </head>
 <body>
@@ -144,53 +163,40 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
 
     <div class="page-wrap">
         <h2>Dashboard</h2>
-        <p class="text-muted">Welcome back, <?php echo htmlspecialchars($_SESSION["full_name"]); ?> - here's <?php echo $month_name; ?> at a glance.</p>
+        <p style="color:#666;">Welcome back, <?php echo htmlspecialchars($_SESSION["full_name"]); ?> - here's <?php echo $month_name; ?> at a glance.</p>
 
-        <?php if (mysqli_num_rows($alerts) > 0) { ?>
-            <div class="card-block mb-3" style="border-left: 4px solid #E74C3C;">
-                <h5><i class="bi bi-exclamation-triangle-fill" style="color:#E74C3C;"></i> Budget Alerts</h5>
-                <?php while ($a = mysqli_fetch_assoc($alerts)) { ?>
-                    <div class="alert-row">
-                        <span class="alert-icon"><i class="bi bi-exclamation-circle-fill"></i></span>
-                        <span style="flex:1;"><?php echo htmlspecialchars($a['alert_message']); ?></span>
-                        <a class="alert-dismiss" href="../dashboard/dismiss_alert.php?id=<?php echo $a['alert_id']; ?>">Dismiss</a>
-                    </div>
-                <?php } ?>
-            </div>
-        <?php } ?>
-
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
+        <div class="grid-row">
+            <div class="grid-col-3">
                 <div class="hero-card hero-earned">
-                    <div class="hc-label"><i class="bi bi-arrow-up-circle-fill"></i> Earned</div>
+                    <div class="hc-label">⬆️ Earned</div>
                     <div class="hc-value">Rs. <?php echo number_format($income, 2); ?></div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="grid-col-3">
                 <div class="hero-card hero-spent">
-                    <div class="hc-label"><i class="bi bi-arrow-down-circle-fill"></i> Spent</div>
+                    <div class="hc-label">⬇️ Spent</div>
                     <div class="hc-value">Rs. <?php echo number_format($expense, 2); ?></div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="grid-col-3">
                 <div class="hero-card hero-balance">
-                    <div class="hc-label"><i class="bi bi-wallet2"></i> Balance</div>
+                    <div class="hc-label">👛 Balance</div>
                     <div class="hc-value">Rs. <?php echo number_format($balance, 2); ?></div>
                 </div>
             </div>
         </div>
 
-        <div class="row g-3 mb-3">
-            <div class="col-md-6">
+        <div class="grid-row">
+            <div class="grid-col-6">
                 <div class="card-block">
                     <h5>Where it went</h5>
-                    <?php if (count($chart_labels) > 0) { ?>
-                        <canvas id="spendingChart" height="180"></canvas>
+                    <?php if (count($category_breakdown) > 0) { ?>
+                        <div class="donut-chart" style="background: conic-gradient(<?php echo $conic_gradient; ?>);">
+                            <div class="donut-hole"></div>
+                        </div>
                         <div class="mt-3">
-                            <?php
-                            $total_for_percent = array_sum($chart_values);
-                            foreach ($category_breakdown as $i => $cat) {
-                                $pct = $total_for_percent > 0 ? round(($cat['total'] / $total_for_percent) * 100) : 0;
+                            <?php foreach ($category_breakdown as $i => $cat) {
+                                $pct = $total_expense_for_chart > 0 ? round(($cat['total'] / $total_expense_for_chart) * 100) : 0;
                                 $color = $palette[$i % count($palette)];
                             ?>
                                 <div class="legend-row">
@@ -206,22 +212,22 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
                             <?php } ?>
                         </div>
                     <?php } else { ?>
-                        <p class="text-muted">No expenses recorded yet this month.</p>
+                        <p style="color:#888;">No expenses recorded yet this month.</p>
                     <?php } ?>
                 </div>
             </div>
 
-            <div class="col-md-6">
+            <div class="grid-col-6">
                 <div class="card-block">
                     <h5>Budget Status</h5>
                     <?php if (mysqli_num_rows($budget_widget) === 0) { ?>
-                        <p class="text-muted">No budgets set for this month yet. <a href="../budgets/budgets.php">Add one</a>.</p>
+                        <p style="color:#888;">No budgets set for this month yet. <a href="../budgets/budgets.php">Add one</a>.</p>
                     <?php } else { while ($b = mysqli_fetch_assoc($budget_widget)) {
                         $spent = $b['spent']; $budget = $b['budget_amount'];
                         $percent = $budget > 0 ? min(100, round(($spent / $budget) * 100)) : 0;
-                        if ($spent > $budget) { $fill = 'fill-over'; $status = 'status-over'; $msg = 'Over budget'; $icon = 'bi-exclamation-circle-fill'; }
-                        elseif ($percent >= 80) { $fill = 'fill-warning'; $status = 'status-warning'; $msg = 'Approaching limit'; $icon = 'bi-exclamation-triangle-fill'; }
-                        else { $fill = 'fill-ok'; $status = 'status-ok'; $msg = 'On track'; $icon = 'bi-check-circle-fill'; }
+                        if ($spent > $budget) { $fill = 'fill-over'; $status = 'status-over'; $msg = '❗ Over budget'; }
+                        elseif ($percent >= 80) { $fill = 'fill-warning'; $status = 'status-warning'; $msg = '⚠️ Approaching limit'; }
+                        else { $fill = 'fill-ok'; $status = 'status-ok'; $msg = '✅ On track'; }
                     ?>
                         <div class="budget-mini">
                             <div class="budget-mini-top">
@@ -229,21 +235,21 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
                                 <span>Rs. <?php echo number_format($spent, 2); ?> / <?php echo number_format($budget, 2); ?></span>
                             </div>
                             <div class="progress-track"><div class="progress-fill <?php echo $fill; ?>" style="width: <?php echo $percent; ?>%;"></div></div>
-                            <div class="budget-status <?php echo $status; ?>"><i class="bi <?php echo $icon; ?>"></i> <?php echo $msg; ?></div>
+                            <div class="budget-status <?php echo $status; ?>"><?php echo $msg; ?></div>
                         </div>
                     <?php } } ?>
-                    <p class="mt-2 mb-0"><a href="../budgets/budgets.php" style="font-size:13px;">Manage all budgets &rarr;</a></p>
+                    <p style="margin-top:10px; margin-bottom:0;"><a href="../budgets/budgets.php" style="font-size:13px;">Manage all budgets &rarr;</a></p>
                 </div>
             </div>
         </div>
 
         <?php if (count($category_breakdown) > 0) { ?>
-        <div class="card-block mb-3">
+        <div class="card-block" style="margin-bottom:20px;">
             <h5>Top Categories</h5>
             <div class="top-cat-row">
                 <?php foreach (array_slice($category_breakdown, 0, 5) as $cat) { ?>
                     <div class="top-cat-item">
-                        <div class="top-cat-icon"><i class="bi <?php echo category_icon($cat['category_name']); ?>"></i></div>
+                        <div class="top-cat-icon"><?php echo category_icon($cat['category_name']); ?></div>
                         <span><?php echo htmlspecialchars($cat['category_name']); ?></span>
                     </div>
                 <?php } ?>
@@ -257,42 +263,28 @@ $palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC', '#
                 <?php while ($row = mysqli_fetch_assoc($recent)) { ?>
                     <div class="txn-row">
                         <div class="txn-left">
-                            <div class="txn-icon"><i class="bi <?php echo category_icon($row['category_name']); ?>"></i></div>
+                            <div class="txn-icon"><?php echo category_icon($row['category_name']); ?></div>
                             <div>
                                 <div class="txn-name"><?php echo htmlspecialchars($row['category_name']); ?></div>
                                 <div class="txn-date"><?php echo $row['transaction_date']; ?></div>
                             </div>
                         </div>
                         <div class="txn-amount <?php echo $row['type'] == 'income' ? 'direction-income' : 'direction-expense'; ?>">
-                            <i class="bi <?php echo $row['type'] == 'income' ? 'bi-arrow-up-circle-fill' : 'bi-arrow-down-circle-fill'; ?>"></i>
+                            <?php echo $row['type'] == 'income' ? '⬆️' : '⬇️'; ?>
                             Rs. <?php echo number_format($row['amount'], 2); ?>
                         </div>
                     </div>
                 <?php } ?>
             <?php } else { ?>
-                <p class="text-muted">No transactions yet. <a href="../transactions/transactions.php">Add your first one</a>.</p>
+                <p style="color:#888;">No transactions yet. <a href="../transactions/transactions.php">Add your first one</a>.</p>
             <?php } ?>
         </div>
 
-        <div class="mt-4 mb-4">
-            <a href="../transactions/transactions.php" class="btn btn-outline-secondary btn-sm">View All Transactions</a>
-            <a href="../budgets/budgets.php" class="btn btn-outline-secondary btn-sm">Manage Budgets</a>
-            <a href="../insights/insights.php" class="btn btn-outline-secondary btn-sm">View Insights</a>
+        <div class="quick-links">
+            <a href="../transactions/transactions.php">View All Transactions</a>
+            <a href="../budgets/budgets.php">Manage Budgets</a>
+            <a href="../insights/insights.php">View Insights</a>
         </div>
     </div>
-
-    <?php if (count($chart_labels) > 0) { ?>
-    <script>
-        const labels = <?php echo json_encode($chart_labels); ?>;
-        const values = <?php echo json_encode($chart_values); ?>;
-        const colors = <?php echo json_encode($palette); ?>;
-
-        new Chart(document.getElementById('spendingChart'), {
-            type: 'doughnut',
-            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 2 }] },
-            options: { responsive: true, cutout: '65%', plugins: { legend: { display: false } } }
-        });
-    </script>
-    <?php } ?>
 </body>
 </html>

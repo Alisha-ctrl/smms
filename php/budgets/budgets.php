@@ -44,9 +44,6 @@ $budgets = mysqli_query($conn, $sql);
 <head>
     <title>Budgets - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
 
     <style>
         .month-label { text-align: center; color: #666666; margin-bottom: 15px; }
@@ -99,7 +96,7 @@ $budgets = mysqli_query($conn, $sql);
         <div class="budget-card">
             <div class="budget-top">
                 <div class="budget-left">
-                    <span class="budget-icon"><i class="bi <?php echo category_icon($row['category_name']); ?>"></i></span>
+                    <span class="budget-icon"><?php echo category_icon($row['category_name']); ?></span>
                     <div>
                         <div><?php echo htmlspecialchars($row['category_name']); ?></div>
                         <div class="budget-amounts">Rs. <?php echo number_format($spent, 2); ?> of Rs. <?php echo number_format($budget, 2); ?></div>
