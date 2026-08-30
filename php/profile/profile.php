@@ -63,54 +63,47 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
     }
 }
+
+$current_page = "profile";
+$page_title = "Your Profile";
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Profile - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-
     <style>
-        .page-wrap { max-width: 500px; margin: 30px auto; padding: 0 15px; }
-        .profile-card {
-            background: #ffffff; border-radius: 10px; padding: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px;
-        }
-        .profile-card h5 { margin-top: 0; color: #1B3A4B; }
-        .profile-card input { width: 100%; box-sizing: border-box; }
-        .profile-card button {
-            background-color: #769FCD; color: #ffffff; border: none; border-radius: 6px;
-            padding: 10px 18px; font-weight: bold; cursor: pointer;
-        }
-        .profile-card button:hover { background-color: #5A80AC; }
+        .profile-wrap { max-width: 500px; }
+        .col-box input { width: 100%; box-sizing: border-box; }
     </style>
 </head>
-<body>
-    <?php include "../includes/nav.php"; ?>
+<body class="with-sidebar">
+    <?php include "../includes/sidebar.php"; ?>
 
-    <div class="page-wrap">
-        <h2 style="text-align:center;">Your Profile</h2>
+    <div class="main-content">
+        <?php include "../includes/topbar.php"; ?>
 
-        <?php if ($message) echo "<p style='text-align:center;'>$message</p>"; ?>
+        <div class="profile-wrap">
+            <?php if ($message) echo "<p>$message</p>"; ?>
 
-        <div class="profile-card">
-            <h5>Account Details</h5>
-            <form method="POST" action="profile.php">
-                Full Name: <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name']); ?>" required><br><br>
-                Email: <input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required><br><br>
-                <button type="submit" name="update_details">Save Changes</button>
-            </form>
-        </div>
+            <div class="col-box">
+                <h5 style="margin-top:0;">Account Details</h5>
+                <form method="POST" action="profile.php">
+                    Full Name: <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name']); ?>" required><br><br>
+                    Email: <input type="email" name="email" value="<?php echo htmlspecialchars($user['email']); ?>" required><br><br>
+                    <button type="submit" name="update_details">Save Changes</button>
+                </form>
+            </div>
 
-        <div class="profile-card">
-            <h5>Change Password</h5>
-            <form method="POST" action="profile.php">
-                Current Password: <input type="password" name="current_password" required><br><br>
-                New Password: <input type="password" name="new_password" minlength="6" required><br><br>
-                Confirm New Password: <input type="password" name="confirm_password" minlength="6" required><br><br>
-                <button type="submit" name="change_password">Change Password</button>
-            </form>
+            <div class="col-box">
+                <h5 style="margin-top:0;">Change Password</h5>
+                <form method="POST" action="profile.php">
+                    Current Password: <input type="password" name="current_password" required><br><br>
+                    New Password: <input type="password" name="new_password" minlength="6" required><br><br>
+                    Confirm New Password: <input type="password" name="confirm_password" minlength="6" required><br><br>
+                    <button type="submit" name="change_password">Change Password</button>
+                </form>
+            </div>
         </div>
     </div>
 </body>

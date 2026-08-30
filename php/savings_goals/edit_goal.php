@@ -12,9 +12,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $target_date = $_POST["target_date"];
     $status = $_POST["status"];
 
-    $sql = "UPDATE savings_goals
-            SET goal_name = ?, target_amount = ?, saved_amount = ?, target_date = ?, status = ?
-            WHERE goal_id = ? AND user_id = ?";
+    $sql = "UPDATE savings_goals SET goal_name=?, target_amount=?, saved_amount=?, target_date=?, status=?
+            WHERE goal_id=? AND user_id=?";
     $stmt = mysqli_prepare($conn, $sql);
     mysqli_stmt_bind_param($stmt, "sddssii", $goal_name, $target_amount, $saved_amount, $target_date, $status, $id, $user_id);
     mysqli_stmt_execute($stmt);
@@ -23,62 +22,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     exit;
 }
 
-// FIX: was raw string interpolation ($id, $user_id straight into SQL) - now a prepared statement
-$sql = "SELECT * FROM savings_goals WHERE goal_id = ? AND user_id = ?";
+$sql = "SELECT * FROM savings_goals WHERE goal_id=? AND user_id=?";
 $stmt = mysqli_prepare($conn, $sql);
 mysqli_stmt_bind_param($stmt, "ii", $id, $user_id);
 mysqli_stmt_execute($stmt);
-$result = mysqli_stmt_get_result($stmt);
-$g = mysqli_fetch_assoc($result);
+$goal = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
+
+$current_page = "savings_goals";
+$page_title = "Edit Savings Goal";
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Edit Savings Goal - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-
-    <style>
-        .edit-card {
-            max-width: 500px; margin: 40px auto; background: #ffffff;
-            border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 24px 28px;
-        }
-        .edit-card h2 { color: #1B3A4B; font-size: 22px; margin-bottom: 20px; }
-        .edit-card label { font-size: 14px; color: #555555; display: block; margin-bottom: 4px; margin-top: 14px; }
-        .edit-card select, .edit-card input { width: 100%; box-sizing: border-box; }
-        .btn-save {
-            background-color: #769FCD; color: #ffffff; border: none; border-radius: 6px;
-            padding: 12px; font-weight: bold; width: 100%; margin-top: 20px; cursor: pointer;
-        }
-        .btn-save:hover { background-color: #5A80AC; }
-        .back-link { display: block; text-align: center; margin-top: 14px; color: #769FCD; font-size: 14px; }
-    </style>
 </head>
-<body>
-    <div class="edit-card">
-        <h2>Edit Savings Goal</h2>
+<body class="with-sidebar">
+    <?php include "../includes/sidebar.php"; ?>
+
+    <div class="main-content">
+        <?php include "../includes/topbar.php"; ?>
+
         <form method="POST" action="edit_goal.php?id=<?php echo $id; ?>">
-            <label>Goal Name</label>
-            <input type="text" name="goal_name" value="<?php echo htmlspecialchars($g['goal_name']); ?>" required>
+            Goal Name: <input type="text" name="goal_name" value="<?php echo htmlspecialchars($goal['goal_name']); ?>" required><br><br>
+            Target Amount: <input type="number" step="0.01" name="target_amount" value="<?php echo $goal['target_amount']; ?>" required><br><br>
+            Saved So Far: <input type="number" step="0.01" name="saved_amount" value="<?php echo $goal['saved_amount']; ?>"><br><br>
+            Target Date: <input type="date" name="target_date" value="<?php echo $goal['target_date']; ?>"><br><br>
 
-            <label>Target Amount</label>
-            <input type="number" step="0.01" name="target_amount" value="<?php echo $g['target_amount']; ?>" required>
-
-            <label>Saved So Far</label>
-            <input type="number" step="0.01" name="saved_amount" value="<?php echo $g['saved_amount']; ?>">
-
-            <label>Target Date</label>
-            <input type="date" name="target_date" value="<?php echo $g['target_date']; ?>">
-
-            <label>Status</label>
+            Status:
             <select name="status">
-                <option value="active" <?php if ($g['status'] == 'active') echo 'selected'; ?>>Active</option>
-                <option value="completed" <?php if ($g['status'] == 'completed') echo 'selected'; ?>>Completed</option>
-            </select>
+                <option value="active" <?php if ($goal['status'] == 'active') echo 'selected'; ?>>Active</option>
+                <option value="completed" <?php if ($goal['status'] == 'completed') echo 'selected'; ?>>Completed</option>
+            </select><br><br>
 
-            <button type="submit" class="btn-save">Save Changes</button>
+            <button type="submit">Save Changes</button>
         </form>
-        <a href="savings_goals.php" class="back-link">Back to Savings Goals</a>
+
+        <p><a href="savings_goals.php">Back to Savings Goals</a></p>
     </div>
 </body>
 </html>

@@ -1,20 +1,19 @@
 /* ============================================================
    SMMS - Shared Stylesheet
-   Color palette:
-   #769FCD - primary blue    -> navbar, buttons, positive/brand elements
-   #5A80AC - dark blue       -> hover states (darkened from #769FCD)
-   #B9D7EA - light blue      -> secondary accents
-   #D6E6F2 - pale blue       -> borders, dividers
-   #F7FBFC - near-white blue -> page background
-   #219653 - green           -> income / positive amounts (kept separate,
-                                 universal "money in" convention)
-   #E74C3C - red             -> expense / negative amounts (kept separate,
-                                 universal "money out" convention)
-   ============================================================ */
+   Color palette (as given):
+   #6096B4 - medium blue  -> navbar, buttons, links, active states
+   #93BFCF - light blue   -> hover/focus tint, badges
+   #BDCDD6 - grey-blue    -> borders, dividers
+   #EEE9DA - warm cream   -> page background
 
+   #4D7A93 below is a manually darkened version of #6096B4, used only
+   for hover states (standard practice - not a contrast fix this time,
+   since #6096B4 already has enough contrast for white text on its own).
+   ============================================================ */
 body {
     font-family: Arial, sans-serif;
-    background-color: #F7FBFC;
+    background: linear-gradient(135deg, #EEE9DA 0%, #E4E6DA 50%, #BDCDD6 100%);
+    background-attachment: fixed;
     color: #333333;
     margin: 0;
     padding: 20px;
@@ -31,21 +30,20 @@ p {
 }
 
 h2 {
-    color: #1B3A4B;
+    color: #2E4653;
     font-size: 28px;
     font-weight: bold;
     margin-bottom: 20px;
 }
 
 h3 {
-    color: #1B3A4B;
+    color: #2E4653;
     font-size: 20px;
     font-weight: bold;
 }
 
-/* ---- Navigation bar ---- */
 nav {
-    background-color: #769FCD;
+    background-color: #6096B4;
     margin: -20px -20px 20px -20px;
     padding: 0 20px;
 }
@@ -69,14 +67,13 @@ nav ul li a {
 }
 
 nav ul li a:hover {
-    background-color: #5A80AC;
+    background-color: #4D7A93;
 }
 
-/* ---- Forms ---- */
 form {
     background-color: #ffffff;
     padding: 20px;
-    border: 1px solid #D6E6F2;
+    border: 1px solid #BDCDD6;
     border-radius: 4px;
     margin-bottom: 20px;
 }
@@ -85,27 +82,34 @@ input,
 select {
     padding: 8px;
     margin-bottom: 10px;
-    border: 1px solid #D6E6F2;
+    border: 1px solid #BDCDD6;
     border-radius: 4px;
     width: 250px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* ---- Buttons ---- */
+input:focus,
+select:focus {
+    outline: none;
+    border-color: #93BFCF;
+    box-shadow: 0 0 0 3px rgba(147, 191, 207, 0.5);
+}
+
 button {
-    background-color: #769FCD;
+    background-color: #6096B4;
     color: #ffffff;
     padding: 10px 20px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
+    transition: background-color 0.15s ease;
 }
 
 button:hover {
-    background-color: #5A80AC;
+    background-color: #4D7A93;
 }
 
-/* ---- Tables ---- */
 table {
     width: 100%;
     border-collapse: collapse;
@@ -114,7 +118,7 @@ table {
 }
 
 th {
-    background-color: #769FCD;
+    background-color: #6096B4;
     color: #ffffff;
     padding: 10px;
     text-align: left;
@@ -122,16 +126,15 @@ th {
 
 td {
     padding: 10px;
-    border-bottom: 1px solid #D6E6F2;
+    border-bottom: 1px solid #BDCDD6;
 }
 
 tr:hover {
-    background-color: #F7FBFC;
+    background-color: #EEE9DA;
 }
 
-/* ---- Links inside tables (Edit / Delete) ---- */
 td a {
-    color: #769FCD;
+    color: #6096B4;
     text-decoration: none;
     margin-right: 8px;
     font-weight: bold;
@@ -141,12 +144,10 @@ td a:hover {
     text-decoration: underline;
 }
 
-/* ---- Messages ---- */
 p {
     color: #333333;
 }
 
-/* ---- Amount coloring (kept as green/red - universal finance convention) ---- */
 .amount-income {
     color: #219653;
     font-weight: bold;
@@ -155,4 +156,159 @@ p {
 .amount-expense {
     color: #E74C3C;
     font-weight: bold;
+}
+
+/* ============================================================
+   Sidebar layout
+   ============================================================ */
+body.with-sidebar {
+    padding: 0;
+    margin: 0;
+    display: flex;
+}
+
+.sidebar {
+    width: 250px;
+    background: linear-gradient(180deg, #ffffff 0%, #EEE9DA 100%);
+    border-right: 1px solid #EEEEEE;
+    min-height: 100vh;
+    padding: 20px 14px;
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px 20px 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #F0F0F0;
+}
+
+.logo-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #EEE9DA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.logo-title {
+    font-weight: bold;
+    color: #2E4653;
+    font-size: 15px;
+}
+
+.logo-subtitle {
+    font-size: 11px;
+    color: #999999;
+}
+
+.sidebar-link {
+    display: block;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    color: #555555;
+    text-decoration: none;
+    font-size: 14px;
+    transition: background-color 0.15s ease;
+}
+
+.sidebar-link:hover {
+    background: rgba(147, 191, 207, 0.35);
+}
+
+.sidebar-active {
+    background: #93BFCF;
+    color: #1F3A45;
+    font-weight: bold;
+}
+
+.sidebar-divider {
+    border-top: 1px solid #F0F0F0;
+    margin: 12px 0;
+}
+
+.main-content {
+    margin-left: 250px;
+    flex: 1;
+    padding: 25px 30px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.topbar-greeting h2 {
+    margin: 0 0 4px 0;
+}
+
+.topbar-greeting p {
+    margin: 0;
+    color: #888888;
+    font-size: 13px;
+}
+
+.col-box {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 20px;
+    max-width: none;
+    transition: box-shadow 0.15s ease;
+}
+
+.col-box:hover {
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+}
+
+.box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.view-all-link {
+    font-size: 13px;
+    color: #2E4653;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.view-all-link:hover {
+    text-decoration: underline;
+}
+
+.fab {
+    transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.fab:hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 900px) {
+    .sidebar {
+        display: none;
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
 }
