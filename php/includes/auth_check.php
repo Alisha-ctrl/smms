@@ -1,14 +1,25 @@
 <?php
+
 session_start();
 
-// Prevents the browser from showing a cached copy of this page after logout.
-// Without this, pressing "Back" after logging out can display a stale version
-// of a protected page instead of properly redirecting to the login page.
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Pragma: no-cache");
-
-if (!isset($_SESSION["user_id"])) {
+if (
+    empty($_SESSION["user_id"]) ||
+    !isset($_SESSION["role"])
+) {
     header("Location: ../auth/login.php");
     exit;
 }
+
+if ($_SESSION["role"] !== "user") {
+    if ($_SESSION["role"] === "admin") {
+        header("Location: ../admin/dashboard.php");
+        exit;
+    }
+
+    session_destroy();
+
+    header("Location: ../auth/login.php");
+    exit;
+}
+
 ?>

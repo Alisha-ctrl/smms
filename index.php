@@ -15,6 +15,7 @@ if (isset($_SESSION["user_id"])) {
 <head>
     <title>Smart Money Management System</title>
     <link rel="stylesheet" href="php/includes/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
         body { padding: 0; margin: 0; }
@@ -22,7 +23,7 @@ if (isset($_SESSION["user_id"])) {
 
         .left-panel {
             flex: 1;
-            background: linear-gradient(160deg, #8FB7DE 0%, #5A80AC 100%);
+            background: linear-gradient(160deg, #0B3A4D 0%, #94CBDB 100%);
             color: #ffffff;
             padding: 60px 50px;
             position: relative;
@@ -47,12 +48,12 @@ if (isset($_SESSION["user_id"])) {
         .mockup-laptop { background: #ffffff; border-radius: 10px; padding: 14px; box-shadow: 0 15px 35px rgba(0,0,0,0.25); }
         .mockup-pills { display: flex; gap: 6px; margin-bottom: 10px; }
         .mockup-pill { flex: 1; height: 18px; border-radius: 4px; }
-        .pill-teal { background: #8FB7DE; }
+        .pill-teal { background: #0B3A4D; }
         .pill-purple { background: #8E44AD; }
         .pill-orange { background: #E9B949; }
 
         .mockup-body { display: flex; gap: 8px; }
-        .mockup-chart { flex: 2; height: 70px; background: #F2FBF6; border-radius: 6px; position: relative; overflow: hidden; }
+        .mockup-chart { flex: 2; height: 70px; background: #C4DFE9; border-radius: 6px; position: relative; overflow: hidden; }
         .mockup-chart::after {
             content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 60%;
             background: linear-gradient(180deg, rgba(44,174,104,0.35), rgba(44,174,104,0));
@@ -61,7 +62,7 @@ if (isset($_SESSION["user_id"])) {
         .mockup-donut { flex: 1; display: flex; align-items: center; justify-content: center; }
         .mockup-donut-shape {
             width: 55px; height: 55px; border-radius: 50%;
-            background: conic-gradient(#8FB7DE 0deg 180deg, #E9B949 180deg 260deg, #8E44AD 260deg 360deg);
+            background: conic-gradient(#0B3A4D 0deg 180deg, #E9B949 180deg 260deg, #8E44AD 260deg 360deg);
             position: relative;
         }
         .mockup-donut-shape::after { content: ""; position: absolute; top: 10px; left: 10px; width: 35px; height: 35px; border-radius: 50%; background: #ffffff; }
@@ -70,7 +71,7 @@ if (isset($_SESSION["user_id"])) {
             position: absolute; right: -25px; bottom: -25px; width: 90px; height: 160px;
             background: #ffffff; border-radius: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); padding: 8px;
         }
-        .mockup-phone .bar { background: #8FB7DE; height: 14px; border-radius: 3px; margin-bottom: 6px; }
+        .mockup-phone .bar { background: #0B3A4D; height: 14px; border-radius: 3px; margin-bottom: 6px; }
         .mockup-phone .line { background: #EFEFEF; height: 8px; border-radius: 3px; margin-bottom: 5px; }
 
         .right-panel {
@@ -85,7 +86,7 @@ if (isset($_SESSION["user_id"])) {
         .auth-card { width: 100%; max-width: 360px; text-align: center; }
 
         .auth-card h2 {
-            color: #1B3A4B;
+            color: #072736;
             font-size: 28px;
             font-weight: bold;
             margin-bottom: 35px;
@@ -114,7 +115,7 @@ if (isset($_SESSION["user_id"])) {
             transition: box-shadow 0.15s ease, border-color 0.15s ease;
         }
         .pill-btn:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-color: #BBBBBB; }
-        .pill-btn i { font-size: 18px; color: #769FCD; }
+        .pill-btn i { font-size: 18px; color: #072736; }
 
         .divider {
             display: flex;
@@ -132,23 +133,23 @@ if (isset($_SESSION["user_id"])) {
         }
 
         .pill-btn-solid {
-            background-color: #C97B4A;
+            background-color: #C7A8A8;
             color: #ffffff;
             border: none;
         }
         .pill-btn-solid i { color: #ffffff; }
-        .pill-btn-solid:hover { background-color: #a8623a; box-shadow: none; }
+        .pill-btn-solid:hover { background-color: #a8898a; box-shadow: none; }
 
         .info-section { max-width: 1000px; margin: 70px auto; padding: 0 20px; text-align: center; }
-        .info-section h2 { color: #1B3A4B; margin-bottom: 40px; }
+        .info-section h2 { color: #072736; margin-bottom: 40px; }
         .info-grid { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }
         .info-box { position: relative; width: 220px; height: 160px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
         .info-box .default-view { width: 100%; height: 100%; background-color: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-        .info-box .default-view .icon { font-size: 26px; color: #769FCD; }
-        .info-box .default-view h3 { color: #1B3A4B; font-size: 16px; margin: 0; }
+        .info-box .default-view .icon { font-size: 26px; color: #072736; }
+        .info-box .default-view h3 { color: #072736; font-size: 16px; margin: 0; }
         .info-box .detail-view {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #769FCD; color: #ffffff; padding: 20px; box-sizing: border-box;
+            background-color: #072736; color: #ffffff; padding: 20px; box-sizing: border-box;
             display: flex; align-items: center; font-size: 13px; line-height: 1.5; text-align: left;
             transform: translateY(100%); transition: transform 0.3s ease;
         }
@@ -200,17 +201,17 @@ if (isset($_SESSION["user_id"])) {
                 <h2>Get Started</h2>
 
                 <a href="php/auth/login.php" class="pill-btn">
-                    🔑 Login
+                    <i class="bi bi-box-arrow-in-right"></i> Login
                 </a>
 
                 <a href="php/auth/register.php" class="pill-btn">
-                    ➕ Create an Account
+                    <i class="bi bi-person-plus-fill"></i> Create an Account
                 </a>
 
                 <div class="divider">or</div>
 
                 <a href="php/admin/admin_login.php" class="pill-btn pill-btn-solid">
-                    🛡️ Admin Login
+                    <i class="bi bi-shield-lock-fill"></i> Admin Login
                 </a>
             </div>
         </div>
@@ -221,19 +222,19 @@ if (isset($_SESSION["user_id"])) {
         <h2>What You Can Do</h2>
         <div class="info-grid">
             <div class="info-box">
-                <div class="default-view"><div class="icon">💰</div><h3>Income & Expenses</h3></div>
+                <div class="default-view"><div class="icon"><i class="bi bi-cash-coin"></i></div><h3>Income & Expenses</h3></div>
                 <div class="detail-view">Log every transaction with a category, amount, and date to build a real history of your finances.</div>
             </div>
             <div class="info-box">
-                <div class="default-view"><div class="icon">📊</div><h3>Budgets</h3></div>
+                <div class="default-view"><div class="icon"><i class="bi bi-pie-chart-fill"></i></div><h3>Budgets</h3></div>
                 <div class="detail-view">Set a monthly spending limit per category and track how close you are to going over.</div>
             </div>
             <div class="info-box">
-                <div class="default-view"><div class="icon">🐷</div><h3>Savings Goals</h3></div>
+                <div class="default-view"><div class="icon"><i class="bi bi-piggy-bank-fill"></i></div><h3>Savings Goals</h3></div>
                 <div class="detail-view">Set a target amount for what you're saving toward and watch your progress grow.</div>
             </div>
             <div class="info-box">
-                <div class="default-view"><div class="icon">💡</div><h3>Insights</h3></div>
+                <div class="default-view"><div class="icon"><i class="bi bi-lightbulb-fill"></i></div><h3>Insights</h3></div>
                 <div class="detail-view">Get plain-English summaries of your spending patterns, budget status, and goal progress.</div>
             </div>
         </div>

@@ -1,18 +1,19 @@
 /* ============================================================
    SMMS - Shared Stylesheet
-   Color palette (as given):
-   #6096B4 - medium blue  -> navbar, buttons, links, active states
-   #93BFCF - light blue   -> hover/focus tint, badges
-   #BDCDD6 - grey-blue    -> borders, dividers
-   #EEE9DA - warm cream   -> page background
+   Color palette:
+   #072736 - Jet Black       -> sidebar background
+   #C4DFE9 - Pale Sky        -> page background
+   #94CBDB - Sky Blue Light  -> buttons, table headers, links, badges
+   #E0E0E0 - Alabaster Grey  -> borders, dividers
+   #C7A8A8 - Rosy Taupe      -> sidebar active state, secondary accents
 
-   #4D7A93 below is a manually darkened version of #6096B4, used only
-   for hover states (standard practice - not a contrast fix this time,
-   since #6096B4 already has enough contrast for white text on its own).
+   No extra/derived colors needed this time - #072736 is dark enough for
+   white text, and #94CBDB/#C7A8A8 are used with dark navy (#072736) text
+   on top instead of white, since those two are too light for white text.
    ============================================================ */
 body {
     font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #EEE9DA 0%, #E4E6DA 50%, #BDCDD6 100%);
+    background: linear-gradient(135deg, #C4DFE9 0%, #E0E0E0 100%);
     background-attachment: fixed;
     color: #333333;
     margin: 0;
@@ -30,20 +31,20 @@ p {
 }
 
 h2 {
-    color: #2E4653;
+    color: #072736;
     font-size: 28px;
     font-weight: bold;
     margin-bottom: 20px;
 }
 
 h3 {
-    color: #2E4653;
+    color: #072736;
     font-size: 20px;
     font-weight: bold;
 }
 
 nav {
-    background-color: #6096B4;
+    background-color: #072736;
     margin: -20px -20px 20px -20px;
     padding: 0 20px;
 }
@@ -67,13 +68,14 @@ nav ul li a {
 }
 
 nav ul li a:hover {
-    background-color: #4D7A93;
+    background-color: #94CBDB;
+    color: #072736;
 }
 
 form {
     background-color: #ffffff;
     padding: 20px;
-    border: 1px solid #BDCDD6;
+    border: 1px solid #E0E0E0;
     border-radius: 4px;
     margin-bottom: 20px;
 }
@@ -82,7 +84,7 @@ input,
 select {
     padding: 8px;
     margin-bottom: 10px;
-    border: 1px solid #BDCDD6;
+    border: 1px solid #E0E0E0;
     border-radius: 4px;
     width: 250px;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -91,13 +93,15 @@ select {
 input:focus,
 select:focus {
     outline: none;
-    border-color: #93BFCF;
-    box-shadow: 0 0 0 3px rgba(147, 191, 207, 0.5);
+    border-color: #C7A8A8;
+    box-shadow: 0 0 0 3px rgba(199, 168, 168, 0.4);
 }
 
+/* #94CBDB is too light for white text, so buttons use dark navy text
+   instead - this avoids needing to invent an extra derived color. */
 button {
-    background-color: #6096B4;
-    color: #ffffff;
+    background-color: #94CBDB;
+    color: #072736;
     padding: 10px 20px;
     border: none;
     border-radius: 4px;
@@ -107,7 +111,7 @@ button {
 }
 
 button:hover {
-    background-color: #4D7A93;
+    background-color: #C7A8A8;
 }
 
 table {
@@ -118,23 +122,23 @@ table {
 }
 
 th {
-    background-color: #6096B4;
-    color: #ffffff;
+    background-color: #94CBDB;
+    color: #072736;
     padding: 10px;
     text-align: left;
 }
 
 td {
     padding: 10px;
-    border-bottom: 1px solid #BDCDD6;
+    border-bottom: 1px solid #E0E0E0;
 }
 
 tr:hover {
-    background-color: #EEE9DA;
+    background-color: #C4DFE9;
 }
 
 td a {
-    color: #6096B4;
+    color: #072736;
     text-decoration: none;
     margin-right: 8px;
     font-weight: bold;
@@ -148,6 +152,8 @@ p {
     color: #333333;
 }
 
+/* Income/expense colors kept separate - universal money-in/money-out
+   convention, unaffected by whichever palette the rest of the site uses. */
 .amount-income {
     color: #219653;
     font-weight: bold;
@@ -159,7 +165,7 @@ p {
 }
 
 /* ============================================================
-   Sidebar layout
+   Sidebar layout - solid dark navy block
    ============================================================ */
 body.with-sidebar {
     padding: 0;
@@ -169,8 +175,7 @@ body.with-sidebar {
 
 .sidebar {
     width: 250px;
-    background: linear-gradient(180deg, #ffffff 0%, #EEE9DA 100%);
-    border-right: 1px solid #EEEEEE;
+    background-color: #072736;
     min-height: 100vh;
     padding: 20px 14px;
     box-sizing: border-box;
@@ -185,14 +190,14 @@ body.with-sidebar {
     gap: 10px;
     padding: 0 8px 20px 8px;
     margin-bottom: 10px;
-    border-bottom: 1px solid #F0F0F0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .logo-badge {
     width: 36px;
     height: 36px;
     border-radius: 8px;
-    background: #EEE9DA;
+    background: #94CBDB;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -201,13 +206,13 @@ body.with-sidebar {
 
 .logo-title {
     font-weight: bold;
-    color: #2E4653;
+    color: #ffffff;
     font-size: 15px;
 }
 
 .logo-subtitle {
     font-size: 11px;
-    color: #999999;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .sidebar-link {
@@ -215,24 +220,24 @@ body.with-sidebar {
     padding: 10px 12px;
     margin-bottom: 4px;
     border-radius: 8px;
-    color: #555555;
+    color: #ffffff;
     text-decoration: none;
     font-size: 14px;
     transition: background-color 0.15s ease;
 }
 
 .sidebar-link:hover {
-    background: rgba(147, 191, 207, 0.35);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .sidebar-active {
-    background: #93BFCF;
-    color: #1F3A45;
+    background: #C7A8A8;
+    color: #072736;
     font-weight: bold;
 }
 
 .sidebar-divider {
-    border-top: 1px solid #F0F0F0;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
     margin: 12px 0;
 }
 
@@ -259,22 +264,28 @@ body.with-sidebar {
 
 .topbar-greeting p {
     margin: 0;
-    color: #888888;
+    color: #666666;
     font-size: 13px;
 }
 
+/* "Boxes" (cards) use the 3 non-sidebar/non-background colors:
+   white fill (for readable content), #E0E0E0 border, #94CBDB accent
+   on hover, tying every card back to the palette without sacrificing
+   the readability of dense numbers/text inside them. */
 .col-box {
     background: #ffffff;
     border-radius: 12px;
     padding: 20px;
+    border: 1px solid #E0E0E0;
     box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
     margin-bottom: 20px;
     max-width: none;
-    transition: box-shadow 0.15s ease;
+    transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .col-box:hover {
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 3px 12px rgba(148, 203, 219, 0.35);
+    border-color: #94CBDB;
 }
 
 .box-header {
@@ -285,22 +296,26 @@ body.with-sidebar {
 
 .view-all-link {
     font-size: 13px;
-    color: #2E4653;
+    color: #072736;
     text-decoration: none;
     font-weight: bold;
 }
 
 .view-all-link:hover {
     text-decoration: underline;
+    color: #94CBDB;
 }
 
 .fab {
     transition: transform 0.1s ease, box-shadow 0.15s ease;
+    background-color: #94CBDB;
+    color: #072736;
 }
 
 .fab:hover {
     transform: scale(1.06);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    background-color: #C7A8A8;
 }
 
 @media (max-width: 900px) {
