@@ -1,187 +1,111 @@
 <?php
-session_start();
-
-if (!isset($_SESSION["user_id"]) || $_SESSION["role"] !== "admin") {
-    header("Location: admin_login.php");
-    exit;
-}
-
+include "admin_auth_check.php";
 include "../includes/db.php";
 
-$user_count = 0;
-$transaction_count = 0;
+$total_users = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM users WHERE role = 'user'"))['total'];
+$total_transactions = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM transactions"))['total'];
+$total_income = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(amount) AS total FROM transactions WHERE type = 'income'"))['total'] ?? 0;
+$total_expense = mysqli_fetch_assoc(mysqli_query($conn, "SELECT SUM(amount) AS total FROM transactions WHERE type = 'expense'"))['total'] ?? 0;
 
-$result = mysqli_query(
-    $conn,
-    "SELECT COUNT(*) AS total FROM users WHERE role = 'user'"
-);
+$recent_users = mysqli_query($conn, "SELECT * FROM users WHERE role = 'user' ORDER BY created_at DESC LIMIT 5");
 
-if ($result) {
-    $row = mysqli_fetch_assoc($result);
-    $user_count = $row["total"];
-}
-
-$result = mysqli_query(
-    $conn,
-    "SELECT COUNT(*) AS total FROM transactions"
-);
-
-if ($result) {
-    $row = mysqli_fetch_assoc($result);
-    $transaction_count = $row["total"];
-}
-
-$admin_name = $_SESSION["full_name"];
+$current_page = "dashboard";
 ?>
-
 <!DOCTYPE html>
 <html>
-
 <head>
-
     <title>Admin Dashboard - SMMS</title>
-
     <link rel="stylesheet" href="../includes/style.css">
 
     <style>
+        .page-wrap { max-width: 1000px; margin: 0 auto; }
 
-        .admin-container {
-            max-width: 1100px;
-            margin: 30px auto;
-            padding: 0 20px;
+        .grid-row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; }
+        .grid-col { flex: 1 1 200px; }
+
+        .stat-card {
+            background: #ffffff; border: 1px solid #E0E0E0; border-radius: 12px; padding: 20px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.05);
         }
-
-        .admin-header {
-            margin-bottom: 25px;
+        .stat-icon {
+            width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center;
+            justify-content: center; font-size: 18px; margin-bottom: 10px;
         }
+        .stat-users { background: #E3F0F5; }
+        .stat-txns  { background: #F3E9E9; }
+        .stat-income { background: #E7F6EE; }
+        .stat-expense { background: #FBEAE8; }
 
-        .admin-header h2 {
-            margin-bottom: 5px;
+        .stat-label { font-size: 13px; color: #888888; }
+        .stat-value { font-size: 26px; font-weight: bold; color: #072736; margin: 4px 0; }
+
+        .user-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F0F0F0; }
+        .user-row:last-child { border-bottom: none; }
+        .user-avatar {
+            width: 34px; height: 34px; border-radius: 50%; background: #E3F0F5; color: #072736;
+            display: inline-flex; align-items: center; justify-content: center; font-size: 16px; margin-right: 10px;
         }
-
-        .admin-header p {
-            color: #666;
-        }
-
-        .admin-cards {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .admin-card {
-            flex: 1;
-            min-width: 220px;
-            background: #E3DDE3;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .admin-card h3 {
-            margin-top: 0;
-        }
-
-        .admin-number {
-            font-size: 30px;
-            font-weight: bold;
-            color: #072736;
-        }
-
-        .admin-actions {
-            margin-top: 25px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .admin-button {
-            display: inline-block;
-            padding: 12px 20px;
-            background: #94CBDB;
-            color: #072736;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-        }
-
-        .admin-button:hover {
-            background: #C7A8A8;
-        }
-
+        .user-email { font-size: 12px; color: #999999; }
     </style>
-
 </head>
+<body class="with-sidebar">
+    <?php include "admin_nav.php"; ?>
 
-<body>
+    <div class="main-content">
+        <div class="page-wrap">
+            <h2>Admin Dashboard</h2>
+            <p style="color:#666; margin-top:-15px;">System-wide overview across all users.</p>
 
-<?php include "admin_nav.php"; ?>
-
-<div class="admin-container">
-
-    <div class="admin-header">
-
-        <h2>
-            Welcome, <?php echo htmlspecialchars($admin_name); ?> 👋
-        </h2>
-
-        <p>
-            Admin overview of the Smart Money Management System.
-        </p>
-
-    </div>
-
-
-    <div class="admin-cards">
-
-        <div class="admin-card">
-
-            <h3>👥 Total Users</h3>
-
-            <div class="admin-number">
-                <?php echo $user_count; ?>
+            <div class="grid-row">
+                <div class="grid-col">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-users">👥</div>
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-value"><?php echo $total_users; ?></div>
+                    </div>
+                </div>
+                <div class="grid-col">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-txns">🧾</div>
+                        <div class="stat-label">Transactions</div>
+                        <div class="stat-value"><?php echo $total_transactions; ?></div>
+                    </div>
+                </div>
+                <div class="grid-col">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-income">⬆️</div>
+                        <div class="stat-label">Total Income</div>
+                        <div class="stat-value">Rs. <?php echo number_format($total_income, 2); ?></div>
+                    </div>
+                </div>
+                <div class="grid-col">
+                    <div class="stat-card">
+                        <div class="stat-icon stat-expense">⬇️</div>
+                        <div class="stat-label">Total Expenses</div>
+                        <div class="stat-value">Rs. <?php echo number_format($total_expense, 2); ?></div>
+                    </div>
+                </div>
             </div>
 
-            <p>Registered regular users</p>
-
-        </div>
-
-
-        <div class="admin-card">
-
-            <h3>💰 Transactions</h3>
-
-            <div class="admin-number">
-                <?php echo $transaction_count; ?>
+            <div class="col-box">
+                <h5 style="margin-top:0;">Recently Joined Users</h5>
+                <?php if (mysqli_num_rows($recent_users) > 0) { ?>
+                    <?php while ($u = mysqli_fetch_assoc($recent_users)) { ?>
+                        <div class="user-row">
+                            <div>
+                                <span class="user-avatar">👤</span>
+                                <?php echo htmlspecialchars($u['full_name']); ?>
+                                <div class="user-email" style="margin-left:44px;"><?php echo htmlspecialchars($u['email']); ?></div>
+                            </div>
+                            <div style="color:#999; font-size:12px;"><?php echo date('M j, Y', strtotime($u['created_at'])); ?></div>
+                        </div>
+                    <?php } ?>
+                <?php } else { ?>
+                    <p style="color:#888;">No users have registered yet.</p>
+                <?php } ?>
+                <p style="margin-top:15px; margin-bottom:0;"><a href="manage_users.php">Manage all users &rarr;</a></p>
             </div>
-
-            <p>Total transactions in the system</p>
-
         </div>
-
     </div>
-
-
-    <div class="admin-actions">
-
-        <a
-            href="manage_users.php"
-            class="admin-button"
-        >
-            👥 Manage Users
-        </a>
-
-        <a
-            href="admin_logout.php"
-            class="admin-button"
-        >
-            🚪 Logout
-        </a>
-
-    </div>
-
-</div>
-
 </body>
-
 </html>
