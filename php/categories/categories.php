@@ -1,7 +1,8 @@
 <?php
 include "../includes/auth_check.php";
 include "../includes/db.php";
-include "../includes/icons.php";
+// icons.php dropped — icons are plain emoji via get_category_emoji() below,
+// no external icon font dependency.
 
 $user_id = $_SESSION["user_id"];
 $message = "";
@@ -49,111 +50,159 @@ while ($row = mysqli_fetch_assoc($categories)) {
         $expense_cats[] = $row;
     }
 }
+
+function get_category_emoji(string $name, string $type): string
+{
+    $map = [
+        'salary'         => '💼',
+        'freelance'      => '💻',
+        'other income'   => '💰',
+        'investment'     => '📈',
+        'gift'           => '🎁',
+        'transport'      => '🚐',
+        'education'      => '📚',
+        'entertainment'  => '🎬',
+        'food'           => '🍔',
+        'miscellaneous'  => '📦',
+        'rent'           => '🏠',
+        'health'         => '🏥',
+        'shopping'       => '🛍️',
+        'utilities'      => '💡',
+        'bills'          => '🧾',
+        'travel'         => '✈️',
+    ];
+    $key = strtolower(trim($name));
+    return $map[$key] ?? ($type === 'income' ? '💰' : '📦');
+}
+
+// Every category renders the same way — no "Default" badge. Custom
+// (user-owned) categories get a Delete link; system ones don't.
+function render_category_cards(array $cats, string $type): void
+{
+    foreach ($cats as $cat) {
+        $emoji = get_category_emoji($cat['category_name'], $type);
+        $isCustom = $cat['user_id'] !== null;
+        echo '<div class="col-box cat-card">';
+        echo '  <div class="cat-left">';
+        echo '    <span class="cat-icon">' . $emoji . '</span>';
+        echo '    <span>' . htmlspecialchars($cat['category_name']) . '</span>';
+        echo '  </div>';
+        if ($isCustom) {
+            echo '  <div class="cat-actions">';
+            echo '    <a href="categories.php?delete_id=' . (int) $cat['category_id'] . '"';
+            echo '       onclick="return confirm(\'Delete this category? Existing transactions using it will keep the reference, but you won\\\'t be able to pick it for new ones.\');">';
+            echo '      Delete</a>';
+            echo '  </div>';
+        }
+        echo '</div>';
+    }
+}
+
+$current_page = "categories"; // read by sidebar.php to highlight the active link
+$page_title = "Categories";   // read by topbar.php
 ?>
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>Categories - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
-
     <style>
-        .page-wrap { max-width: 900px; margin: 30px auto; padding: 0 15px; }
-        .section-label { text-align: center; color: #666666; margin: 25px 0 10px 0; font-weight: bold; }
-
+        /* Page-specific structure only — no new colors, everything below
+           reuses the palette already defined in style.css. */
         .cat-card {
-            background: #ffffff; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-            padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        .cat-left { display: flex; align-items: center; gap: 12px; }
+        .cat-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
         .cat-icon {
-            width: 36px; height: 36px; border-radius: 50%; background: #F7FBFC; color: #769FCD;
-            display: flex; align-items: center; justify-content: center; font-size: 16px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #E0E0E0; /* Alabaster Grey, from the shared palette */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            flex-shrink: 0;
         }
-        .cat-badge { font-size: 11px; color: #999999; margin-left: 8px; }
-        .cat-actions a { font-size: 12px; margin-left: 8px; color: #E74C3C; text-decoration: none; font-weight: bold; }
+        .cat-actions a {
+            color: #E74C3C; /* same red already used for .amount-expense */
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .cat-actions a:hover {
+            text-decoration: underline;
+        }
 
-        .fab-wrapper { position: fixed; bottom: 25px; left: 0; right: 0; display: flex; justify-content: center; }
+        /* .fab in style.css only defines color/hover transition — structural
+           positioning (size, shape, placement) is page-specific by design. */
         .fab {
-            width: 60px; height: 60px; border-radius: 50%; border: 3px solid #769FCD; background: #ffffff;
-            color: #769FCD; font-size: 28px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: none;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
         }
+
         #addFormWrapper {
-            max-width: 500px; margin: 0 auto 100px auto; background: #ffffff; border-radius: 10px;
-            padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); display: none;
+            display: none;
         }
     </style>
 </head>
-<body>
-    <?php include "../includes/nav.php"; ?>
+<body class="with-sidebar">
 
-    <div class="page-wrap">
-        <h2>Categories</h2>
-        <p class="text-muted" style="text-align:center;">System default categories are shared by everyone. Categories you add here are private to your account.</p>
+    <?php include "../includes/sidebar.php"; ?>
 
-        <?php if ($message) echo "<p style='text-align:center;'>$message</p>"; ?>
+    <div class="main-content">
+        <?php include "../includes/topbar.php"; ?>
 
-        <p class="section-label">Income Categories</p>
-        <?php foreach ($income_cats as $cat) { ?>
-            <div class="cat-card">
-                <div class="cat-left">
-                    <span class="cat-icon"><i class="bi <?php echo category_icon($cat['category_name']); ?>"></i></span>
-                    <span><?php echo htmlspecialchars($cat['category_name']); ?></span>
-                    <?php if ($cat['user_id'] === null) { ?>
-                        <span class="cat-badge">Default</span>
-                    <?php } ?>
-                </div>
-                <?php if ($cat['user_id'] !== null) { ?>
-                    <div class="cat-actions">
-                        <a href="categories.php?delete_id=<?php echo $cat['category_id']; ?>"
-                           onclick="return confirm('Delete this category? Existing transactions using it will keep the reference, but you won\'t be able to pick it for new ones.');">
-                            Delete
-                        </a>
-                    </div>
-                <?php } ?>
-            </div>
-        <?php } ?>
+        <?php if ($message): ?>
+            <div class="col-box" style="text-align:center;"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
 
-        <p class="section-label">Expense Categories</p>
-        <?php foreach ($expense_cats as $cat) { ?>
-            <div class="cat-card">
-                <div class="cat-left">
-                    <span class="cat-icon"><i class="bi <?php echo category_icon($cat['category_name']); ?>"></i></span>
-                    <span><?php echo htmlspecialchars($cat['category_name']); ?></span>
-                    <?php if ($cat['user_id'] === null) { ?>
-                        <span class="cat-badge">Default</span>
-                    <?php } ?>
-                </div>
-                <?php if ($cat['user_id'] !== null) { ?>
-                    <div class="cat-actions">
-                        <a href="categories.php?delete_id=<?php echo $cat['category_id']; ?>"
-                           onclick="return confirm('Delete this category? Existing transactions using it will keep the reference, but you won\'t be able to pick it for new ones.');">
-                            Delete
-                        </a>
-                    </div>
-                <?php } ?>
-            </div>
-        <?php } ?>
+        <h3>Income Categories</h3>
+        <?php render_category_cards($income_cats, 'income'); ?>
+
+        <h3>Expense Categories</h3>
+        <?php render_category_cards($expense_cats, 'expense'); ?>
 
         <div id="addFormWrapper">
-            <h3 style="text-align:center; margin-top:0;">Add Category</h3>
+            <h3>Add Category</h3>
             <form method="POST" action="categories.php">
-                Name: <input type="text" name="category_name" required><br><br>
-                Type:
-                <select name="category_type">
+                <label for="category_name">Name</label><br>
+                <input type="text" id="category_name" name="category_name" required><br>
+
+                <label for="category_type">Type</label><br>
+                <select id="category_type" name="category_type">
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
-                </select><br><br>
+                </select><br>
+
                 <button type="submit">Save</button>
             </form>
         </div>
 
-        <div class="fab-wrapper">
-            <div class="fab" onclick="document.getElementById('addFormWrapper').style.display='block'; document.getElementById('addFormWrapper').scrollIntoView({behavior:'smooth'});">+</div>
-        </div>
+        <button class="fab" onclick="
+            var w = document.getElementById('addFormWrapper');
+            w.style.display = (w.style.display === 'none' || w.style.display === '') ? 'block' : 'none';
+            w.scrollIntoView({behavior:'smooth'});
+        ">+</button>
     </div>
+
 </body>
 </html>
