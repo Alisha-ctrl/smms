@@ -15,7 +15,6 @@ if (isset($_SESSION["user_id"])) {
 <head>
     <title>Smart Money Management System</title>
     <link rel="stylesheet" href="php/includes/style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
     <style>
         body { padding: 0; margin: 0; }
