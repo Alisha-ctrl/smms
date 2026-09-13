@@ -1,8 +1,7 @@
 <?php
 include "../includes/auth_check.php";
 include "../includes/db.php";
-// icons.php dropped — icons are plain emoji via get_category_emoji() below,
-// no external icon font dependency.
+include "../includes/icons.php"; // category_icon() — now returns SVG, matches sidebar's icon style
 
 $user_id = $_SESSION["user_id"];
 $message = "";
@@ -51,40 +50,16 @@ while ($row = mysqli_fetch_assoc($categories)) {
     }
 }
 
-function get_category_emoji(string $name, string $type): string
-{
-    $map = [
-        'salary'         => '💼',
-        'freelance'      => '💻',
-        'other income'   => '💰',
-        'investment'     => '📈',
-        'gift'           => '🎁',
-        'transport'      => '🚐',
-        'education'      => '📚',
-        'entertainment'  => '🎬',
-        'food'           => '🍔',
-        'miscellaneous'  => '📦',
-        'rent'           => '🏠',
-        'health'         => '🏥',
-        'shopping'       => '🛍️',
-        'utilities'      => '💡',
-        'bills'          => '🧾',
-        'travel'         => '✈️',
-    ];
-    $key = strtolower(trim($name));
-    return $map[$key] ?? ($type === 'income' ? '💰' : '📦');
-}
-
 // Every category renders the same way — no "Default" badge. Custom
 // (user-owned) categories get a Delete link; system ones don't.
 function render_category_cards(array $cats, string $type): void
 {
     foreach ($cats as $cat) {
-        $emoji = get_category_emoji($cat['category_name'], $type);
+        $icon = category_icon($cat['category_name']);
         $isCustom = $cat['user_id'] !== null;
         echo '<div class="col-box cat-card">';
         echo '  <div class="cat-left">';
-        echo '    <span class="cat-icon">' . $emoji . '</span>';
+        echo '    <span class="cat-icon">' . $icon . '</span>';
         echo '    <span>' . htmlspecialchars($cat['category_name']) . '</span>';
         echo '  </div>';
         if ($isCustom) {
@@ -107,6 +82,7 @@ $page_title = "Categories";   // read by topbar.php
     <meta charset="UTF-8">
     <title>Categories - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         /* Page-specific structure only — no new colors, everything below
            reuses the palette already defined in style.css. */
@@ -201,7 +177,7 @@ $page_title = "Categories";   // read by topbar.php
             var w = document.getElementById('addFormWrapper');
             w.style.display = (w.style.display === 'none' || w.style.display === '') ? 'block' : 'none';
             w.scrollIntoView({behavior:'smooth'});
-        ">+</button>
+        "><i class="fa-solid fa-plus"></i></button>
     </div>
 
 </body>
