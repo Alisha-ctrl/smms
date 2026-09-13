@@ -34,6 +34,7 @@ $page_title = "Reports";
 <head>
     <title>Reports - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         .filter-bar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 15px; max-width: none; }
         .filter-bar label { font-size: 13px; color: #555555; display: block; margin-bottom: 4px; }
@@ -44,8 +45,11 @@ $page_title = "Reports";
 
         .action-buttons { margin-bottom: 20px; }
         .action-buttons a { display: inline-block; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 14px; margin-right: 10px; }
-        .btn-csv { background: #769FCD; color: #ffffff; }
-        .btn-print { background: #ffffff; color: #769FCD; border: 1px solid #769FCD; }
+        /* Was #769FCD, not in the real palette — matches style.css's own
+           <button> rule (#94CBDB / dark navy text) instead of inventing a
+           separate blue just for these two links. */
+        .btn-csv { background: #94CBDB; color: #072736; }
+        .btn-print { background: #ffffff; color: #072736; border: 1px solid #94CBDB; }
 
         @media print {
             .sidebar, .topbar, .filter-bar, .action-buttons { display: none !important; }
@@ -67,8 +71,8 @@ $page_title = "Reports";
         </form>
 
         <div class="action-buttons">
-            <a class="btn-csv" href="export_csv.php?from=<?php echo $from; ?>&to=<?php echo $to; ?>">Download CSV</a>
-            <a class="btn-print" href="#" onclick="window.print(); return false;">Print / Save as PDF</a>
+            <a class="btn-csv" href="export_csv.php?from=<?php echo $from; ?>&to=<?php echo $to; ?>"><i class="fa-solid fa-file-arrow-down"></i> Download CSV</a>
+            <a class="btn-print" href="#" onclick="window.print(); return false;"><i class="fa-solid fa-print"></i> Print / Save as PDF</a>
         </div>
 
         <p class="summary-line">
