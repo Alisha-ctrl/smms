@@ -7,14 +7,21 @@ $user_id = $_SESSION["user_id"];
 $message = "";
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $goal_name = $_POST["goal_name"];
-    $target_amount = $_POST["target_amount"];
-    $saved_amount = $_POST["saved_amount"];
-    $target_date = $_POST["target_date"];
 
-    $sql = "INSERT INTO savings_goals (user_id, goal_name, target_amount, saved_amount, target_date) VALUES (?, ?, ?, ?, ?)";
+    $name = $_POST["goal_name"];
+    $target = $_POST["target_amount"];
+    $saved = $_POST["saved_amount"];
+    $date = $_POST["target_date"];
+
+    $sql = "INSERT INTO savings_goals
+            (user_id, goal_name, target_amount, saved_amount, target_date)
+            VALUES (?, ?, ?, ?, ?)";
+
     $stmt = mysqli_prepare($conn, $sql);
-    mysqli_stmt_bind_param($stmt, "isdds", $user_id, $goal_name, $target_amount, $saved_amount, $target_date);
+    mysqli_stmt_bind_param(
+        $stmt, "isdds",
+        $user_id, $name, $target, $saved, $date
+    );
 
     if (mysqli_stmt_execute($stmt)) {
         $message = "Savings goal added!";
@@ -23,89 +30,215 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 
-$sql = "SELECT * FROM savings_goals WHERE user_id = $user_id ORDER BY target_date ASC";
-$goals = mysqli_query($conn, $sql);
+$goals = mysqli_query($conn,
+    "SELECT * FROM savings_goals
+     WHERE user_id=$user_id
+     ORDER BY target_date ASC"
+);
 
 $current_page = "savings_goals";
 $page_title = "Savings Goals";
 ?>
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Savings Goals - SMMS</title>
-    <link rel="stylesheet" href="../includes/style.css">
-    <style>
-        .goal-card { background: #ffffff; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); padding: 16px 18px; margin-bottom: 12px; max-width: none; }
-        .goal-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-        .goal-left { display: flex; align-items: center; gap: 12px; }
-        .goal-icon { width: 38px; height: 38px; border-radius: 50%; background: #F7FBFC; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-        .goal-amounts { font-size: 13px; color: #666666; }
-        .goal-actions a { font-size: 12px; margin-left: 8px; }
-        .goal-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; color: #ffffff; margin-left: 8px; }
-        .badge-active { background-color: #219653; }
-        .badge-completed { background-color: #999999; }
 
-        .progress-track { background: #EFEFEF; border-radius: 20px; height: 10px; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 20px; background-color: #769FCD; }
+<title>Savings Goals - SMMS</title>
 
-        .fab-wrapper { position: fixed; bottom: 25px; right: 40px; }
-        .fab { width: 56px; height: 56px; border-radius: 50%; border: none; background: #219653; color: #ffffff; font-size: 26px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-        #addFormWrapper { max-width: 500px; margin: 0 auto 30px auto; }
-    </style>
+<link rel="stylesheet" href="../includes/style.css">
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+<style>
+.card{
+    background:#fff;
+    padding:18px;
+    margin-bottom:14px;
+    border-radius:12px;
+    box-shadow:0 1px 6px #ddd;
+}
+.top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+.icon{
+    display:inline-flex;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    background:#E0E0E0;
+    align-items:center;
+    justify-content:center;
+    margin-right:10px;
+}
+.info{
+    color:#777;
+    font-size:13px;
+    margin-top:5px;
+}
+.actions a{
+    margin-left:10px;
+    font-size:12px;
+    text-decoration:none;
+}
+.edit{color:#769FCD}
+.delete{color:#E74C3C}
+.goal-badge{font-size:11px;padding:2px 8px;border-radius:10px;color:#fff;margin-left:8px;}
+.badge-active{background-color:#219653;}
+.badge-completed{background-color:#999999;}
+.bar{
+    height:10px;
+    background:#eee;
+    border-radius:10px;
+    margin-top:12px;
+}
+.fill{
+    height:100%;
+    background:#769FCD;
+    border-radius:10px;
+}
+.add{
+    display:none;
+    background:#fff;
+    max-width:500px;
+    padding:20px;
+    margin:20px auto;
+    border-radius:12px;
+}
+.add input{
+    width:100%;
+    padding:9px;
+    margin:6px 0 14px;
+    box-sizing:border-box;
+}
+.save{
+    background:#219653;
+    color:#fff;
+    border:0;
+    padding:10px 18px;
+    border-radius:7px;
+}
+.fab{
+    position:fixed;
+    right:35px;
+    bottom:25px;
+    width:55px;
+    height:55px;
+    border:0;
+    border-radius:50%;
+    background:#219653;
+    color:#fff;
+    font-size:25px;
+}
+</style>
+
 </head>
+
 <body class="with-sidebar">
-    <?php include "../includes/sidebar.php"; ?>
 
-    <div class="main-content">
-        <?php include "../includes/topbar.php"; ?>
+<?php include "../includes/sidebar.php"; ?>
 
-        <?php if ($message) echo "<p>$message</p>"; ?>
+<div class="main-content">
 
-        <?php if (mysqli_num_rows($goals) === 0) { ?>
-            <p style="color:#888;">No savings goals yet. Tap the + button to add one.</p>
-        <?php } ?>
+<?php include "../includes/topbar.php"; ?>
 
-        <?php while ($row = mysqli_fetch_assoc($goals)) {
-            $target = $row['target_amount']; $saved = $row['saved_amount'];
-            $percent = $target > 0 ? min(100, round(($saved / $target) * 100)) : 0;
-        ?>
-            <div class="goal-card">
-                <div class="goal-top">
-                    <div class="goal-left">
-                        <span class="goal-icon"><?php echo goal_icon(); ?></span>
-                        <div>
-                            <div>
-                                <?php echo htmlspecialchars($row['goal_name']); ?>
-                                <span class="goal-badge <?php echo $row['status'] == 'active' ? 'badge-active' : 'badge-completed'; ?>">
-                                    <?php echo ucfirst($row['status']); ?>
-                                </span>
-                            </div>
-                            <div class="goal-amounts">Rs. <?php echo number_format($saved, 2); ?> of Rs. <?php echo number_format($target, 2); ?> (<?php echo $percent; ?>%)</div>
-                        </div>
-                    </div>
-                    <div class="goal-actions">
-                        <a href="edit_goal.php?id=<?php echo $row['goal_id']; ?>">Edit</a>
-                        <a href="delete_goal.php?id=<?php echo $row['goal_id']; ?>" onclick="return confirm('Delete this goal?');">Delete</a>
-                    </div>
-                </div>
-                <div class="progress-track"><div class="progress-fill" style="width: <?php echo $percent; ?>%;"></div></div>
-            </div>
-        <?php } ?>
+<?php if ($message) echo "<p>" . htmlspecialchars($message) . "</p>"; ?>
 
-        <div id="addFormWrapper" style="display:none;">
-            <h3 style="text-align:center;">Add Savings Goal</h3>
-            <form method="POST" action="savings_goals.php">
-                Goal Name: <input type="text" name="goal_name" required><br><br>
-                Target Amount: <input type="number" step="0.01" name="target_amount" required><br><br>
-                Already Saved: <input type="number" step="0.01" name="saved_amount" value="0"><br><br>
-                Target Date: <input type="date" name="target_date"><br><br>
-                <button type="submit">Save</button>
-            </form>
-        </div>
+<?php if (mysqli_num_rows($goals) == 0) { ?>
+<p style="color:#888;">No savings goals yet.</p>
+<?php } ?>
 
-        <div class="fab-wrapper">
-            <div class="fab" onclick="document.getElementById('addFormWrapper').style.display='block'; document.getElementById('addFormWrapper').scrollIntoView({behavior:'smooth'});">+</div>
-        </div>
-    </div>
+
+<?php while ($g = mysqli_fetch_assoc($goals)) {
+
+$percent = $g['target_amount'] > 0
+    ? min(100, round($g['saved_amount'] / $g['target_amount'] * 100))
+    : 0;
+?>
+
+<div class="card">
+
+<div class="top">
+
+<div>
+
+<span class="icon">
+<?php echo goal_icon(); ?>
+</span>
+
+<strong><?php echo htmlspecialchars($g['goal_name']); ?></strong>
+<span class="goal-badge <?php echo $g['status'] == 'active' ? 'badge-active' : 'badge-completed'; ?>">
+<?php echo ucfirst($g['status']); ?>
+</span>
+
+<div class="info">
+Rs. <?php echo number_format($g['saved_amount'],2); ?>
+of Rs. <?php echo number_format($g['target_amount'],2); ?>
+(<?php echo $percent; ?>%)
+</div>
+
+</div>
+
+<div class="actions">
+
+<a class="edit"
+href="edit_goal.php?id=<?php echo $g['goal_id']; ?>">
+Edit
+</a>
+
+<a class="delete"
+href="delete_goal.php?id=<?php echo $g['goal_id']; ?>"
+onclick="return confirm('Delete this goal?')">
+Delete
+</a>
+
+</div>
+
+</div>
+
+<div class="bar">
+<div class="fill"
+style="width:<?php echo $percent; ?>%"></div>
+</div>
+
+</div>
+
+<?php } ?>
+
+
+<div class="add" id="addForm">
+
+<h3>Add Savings Goal</h3>
+
+<form method="POST">
+
+<label>Goal Name</label>
+<input type="text" name="goal_name" required>
+
+<label>Target Amount</label>
+<input type="number" step="0.01"
+name="target_amount" required>
+
+<label>Already Saved</label>
+<input type="number" step="0.01"
+name="saved_amount" value="0">
+
+<label>Target Date</label>
+<input type="date" name="target_date">
+
+<button class="save">Save Goal</button>
+
+</form>
+
+</div>
+
+<button class="fab"
+onclick="addForm.style.display='block'">
++
+</button>
+
+</div>
 </body>
 </html>
