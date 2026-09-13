@@ -72,6 +72,7 @@ $page_title = "Your Profile";
 <head>
     <title>Profile - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         .profile-wrap { max-width: 500px; }
         .col-box input { width: 100%; box-sizing: border-box; }
@@ -84,7 +85,7 @@ $page_title = "Your Profile";
         <?php include "../includes/topbar.php"; ?>
 
         <div class="profile-wrap">
-            <?php if ($message) echo "<p>$message</p>"; ?>
+            <?php if ($message) echo "<p>" . htmlspecialchars($message) . "</p>"; ?>
 
             <div class="col-box">
                 <h5 style="margin-top:0;">Account Details</h5>

@@ -13,10 +13,13 @@ $sql = "SELECT
             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
             SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense
         FROM transactions
-        WHERE user_id = $user_id
-        AND MONTH(transaction_date) = $this_month
-        AND YEAR(transaction_date) = $this_year";
-$summary = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+        WHERE user_id = ?
+        AND MONTH(transaction_date) = ?
+        AND YEAR(transaction_date) = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$summary = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 $income = $summary['total_income'] ?? 0;
 $expense = $summary['total_expense'] ?? 0;
 $balance = $income - $expense;
@@ -30,10 +33,13 @@ $sql = "SELECT
             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
             SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense
         FROM transactions
-        WHERE user_id = $user_id
-        AND MONTH(transaction_date) = $last_month
-        AND YEAR(transaction_date) = $last_year";
-$last_summary = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+        WHERE user_id = ?
+        AND MONTH(transaction_date) = ?
+        AND YEAR(transaction_date) = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $last_month, $last_year);
+mysqli_stmt_execute($stmt);
+$last_summary = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 $last_income = $last_summary['total_income'] ?? 0;
 $last_expense = $last_summary['total_expense'] ?? 0;
 $last_balance = $last_income - $last_expense;
@@ -51,26 +57,32 @@ $balance_change = percent_change($balance, $last_balance);
 $sql = "SELECT c.category_name, SUM(t.amount) AS total
         FROM transactions t
         JOIN categories c ON t.category_id = c.category_id
-        WHERE t.user_id = $user_id
+        WHERE t.user_id = ?
         AND t.type = 'expense'
-        AND MONTH(t.transaction_date) = $this_month
-        AND YEAR(t.transaction_date) = $this_year
+        AND MONTH(t.transaction_date) = ?
+        AND YEAR(t.transaction_date) = ?
         GROUP BY t.category_id
         ORDER BY total DESC";
-$result = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
 $category_breakdown = [];
 while ($row = mysqli_fetch_assoc($result)) {
     $category_breakdown[] = $row;
 }
 
 // ---- Build a pure CSS conic-gradient donut chart - no charting library ----
-$palette = ['#769FCD', '#E9B949', '#8E44AD', '#16A085', '#E74C3C', '#5A80AC'];
+// Colors now come from category_color() in icons.php (fixed per-category
+// map) instead of a local $palette indexed by array position, so a given
+// category renders the same color here as it does on insights.php and
+// predictions.php.
 $total_expense_for_chart = array_sum(array_column($category_breakdown, 'total'));
 $gradient_stops = [];
 $running_percent = 0;
-foreach ($category_breakdown as $i => $cat) {
+foreach ($category_breakdown as $cat) {
     $slice_percent = $total_expense_for_chart > 0 ? ($cat['total'] / $total_expense_for_chart) * 100 : 0;
-    $color = $palette[$i % count($palette)];
+    $color = category_color($cat['category_name'])['text'];
     $start = $running_percent;
     $end = $running_percent + $slice_percent;
     $gradient_stops[] = "$color {$start}% {$end}%";
@@ -85,19 +97,25 @@ $sql = "SELECT b.*, c.category_name,
                   AND t.type = 'expense' AND MONTH(t.transaction_date) = b.month AND YEAR(t.transaction_date) = b.year), 0) AS spent
         FROM budgets b
         JOIN categories c ON b.category_id = c.category_id
-        WHERE b.user_id = $user_id AND b.month = $this_month AND b.year = $this_year
+        WHERE b.user_id = ? AND b.month = ? AND b.year = ?
         ORDER BY b.budget_id DESC
         LIMIT 3";
-$budget_widget = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$budget_widget = mysqli_stmt_get_result($stmt);
 
 // ---- Recent transactions ----
 $sql = "SELECT t.*, c.category_name
         FROM transactions t
         JOIN categories c ON t.category_id = c.category_id
-        WHERE t.user_id = $user_id
+        WHERE t.user_id = ?
         ORDER BY t.transaction_date DESC, t.transaction_id DESC
         LIMIT 5";
-$recent = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "i", $user_id);
+mysqli_stmt_execute($stmt);
+$recent = mysqli_stmt_get_result($stmt);
 
 // ---- Time-based greeting ----
 $hour = (int) date('G');
@@ -114,6 +132,7 @@ $current_page = "dashboard";
 <head>
     <title>Dashboard - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
         .summary-row { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -121,40 +140,29 @@ $current_page = "dashboard";
             flex: 1; min-width: 220px;
             background: #ffffff; border-radius: 12px; padding: 20px;
             box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-            position: relative; overflow: hidden;
         }
         .summary-card .icon-circle {
             width: 40px; height: 40px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
         }
-        .icon-earned { background: #E7F6EE; }
-        .icon-spent { background: #FBEAE8; }
-        .icon-balance { background: #EAF1FB; }
+        .icon-earned { background: rgba(33, 150, 83, 0.12); }
+        .icon-spent { background: rgba(231, 76, 60, 0.12); }
+        .icon-balance { background: #C4DFE9; }
 
         .summary-card .label { font-size: 13px; color: #888888; }
         .summary-card .value { font-size: 24px; font-weight: bold; margin: 4px 0 8px 0; }
         .val-earned { color: #219653; }
         .val-spent { color: #E74C3C; }
-        .val-balance { color: #769FCD; }
+        .val-balance { color: #072736; }
 
         .change-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-right: 6px; }
-        .change-up { background: #E7F6EE; color: #1B7943; }
-        .change-down { background: #FBEAE8; color: #C0392B; }
+        .change-up { background: rgba(33, 150, 83, 0.12); color: #219653; }
+        .change-down { background: rgba(231, 76, 60, 0.12); color: #E74C3C; }
         .change-label { font-size: 11px; color: #999999; }
 
-        /* Simple wave-like decoration at the bottom of each card using a rounded shape */
-        .card-wave {
-            position: absolute; bottom: -20px; left: -20px; right: -20px; height: 40px;
-            border-radius: 50%;
-        }
-        .wave-earned { background: #E7F6EE; }
-        .wave-spent { background: #FBEAE8; }
-        .wave-balance { background: #EAF1FB; }
-
         .two-col { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 20px; }
-        .col-box { flex: 1; min-width: 320px; background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+        .col-box { flex: 1; min-width: 320px; }
         .col-box h3 { margin-top: 0; }
-        .box-header { display: flex; justify-content: space-between; align-items: center; }
         .view-all-link { font-size: 13px; color: #219653; text-decoration: none; font-weight: bold; }
 
         .donut-chart { width: 150px; height: 150px; border-radius: 50%; margin: 15px auto; position: relative; }
@@ -164,34 +172,55 @@ $current_page = "dashboard";
 
         .legend-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 13px; }
         .legend-left { display: flex; align-items: center; gap: 8px; }
-        .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .legend-dot {
+            width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 9px;
+        }
         .legend-percent { color: #999999; margin-left: 6px; }
 
         .budget-mini { margin-bottom: 16px; display: flex; gap: 12px; }
         .budget-mini:last-child { margin-bottom: 0; }
-        .budget-mini-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .budget-mini-icon { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .budget-mini-body { flex: 1; }
         .budget-mini-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
-        .progress-track { background: #EFEFEF; border-radius: 20px; height: 7px; overflow: hidden; }
+        .progress-track { background: #E0E0E0; border-radius: 20px; height: 7px; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 20px; }
         .fill-ok { background-color: #219653; }
-        .fill-warning { background-color: #E9B949; }
+        .fill-warning { background-color: #C7A8A8; }
         .fill-over { background-color: #E74C3C; }
         .status-pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-top: 5px; }
-        .status-ok { background: #E7F6EE; color: #1B7943; }
-        .status-warning { background: #FDF3E0; color: #B8860B; }
-        .status-over { background: #FBEAE8; color: #C0392B; }
+        .status-ok { background: rgba(33, 150, 83, 0.12); color: #219653; }
+        .status-warning { background: rgba(199, 168, 168, 0.35); color: #072736; }
+        .status-over { background: rgba(231, 76, 60, 0.12); color: #E74C3C; }
 
-        .txn-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #F5F5F5; }
+        .txn-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #E0E0E0; }
         .txn-row:last-child { border-bottom: none; }
         .txn-left { display: flex; align-items: center; gap: 10px; }
-        .txn-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-        .txn-icon-income { background: #E7F6EE; }
-        .txn-icon-expense { background: #FBEAE8; }
+        .txn-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .txn-icon-income { background: rgba(33, 150, 83, 0.12); }
+        .txn-icon-expense { background: rgba(231, 76, 60, 0.12); }
         .txn-name { font-size: 14px; }
         .txn-sub { font-size: 11px; color: #999999; }
         .txn-amount { font-weight: bold; font-size: 14px; text-align: right; }
         .txn-date { font-size: 11px; color: #999999; text-align: right; }
+
+        .fab {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: none;
+            font-size: 28px;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 <body class="with-sidebar">
@@ -200,7 +229,7 @@ $current_page = "dashboard";
     <div class="main-content">
         <div class="topbar">
             <div class="topbar-greeting">
-                <h2><?php echo $greeting; ?>, <?php echo htmlspecialchars($first_name); ?> 👋</h2>
+                <h2><?php echo $greeting; ?>, <?php echo htmlspecialchars($first_name); ?></h2>
                 <p>Here's your financial overview for <?php echo $month_name; ?></p>
             </div>
         </div>
@@ -208,7 +237,7 @@ $current_page = "dashboard";
         <!-- Summary cards -->
         <div class="summary-row">
             <div class="summary-card">
-                <div class="icon-circle icon-earned">⬆️</div>
+                <div class="icon-circle icon-earned"><i class="fa-solid fa-arrow-up" style="color:#219653;"></i></div>
                 <div class="label">Total Earned</div>
                 <div class="value val-earned">Rs. <?php echo number_format($income, 2); ?></div>
                 <?php if ($income_change !== null) { ?>
@@ -217,11 +246,10 @@ $current_page = "dashboard";
                     </span>
                     <span class="change-label">vs last month</span>
                 <?php } ?>
-                <div class="card-wave wave-earned"></div>
             </div>
 
             <div class="summary-card">
-                <div class="icon-circle icon-spent">⬇️</div>
+                <div class="icon-circle icon-spent"><i class="fa-solid fa-arrow-down" style="color:#E74C3C;"></i></div>
                 <div class="label">Total Spent</div>
                 <div class="value val-spent">Rs. <?php echo number_format($expense, 2); ?></div>
                 <?php if ($expense_change !== null) { ?>
@@ -230,11 +258,10 @@ $current_page = "dashboard";
                     </span>
                     <span class="change-label">vs last month</span>
                 <?php } ?>
-                <div class="card-wave wave-spent"></div>
             </div>
 
             <div class="summary-card">
-                <div class="icon-circle icon-balance">👛</div>
+                <div class="icon-circle icon-balance"><i class="fa-solid fa-wallet" style="color:#072736;"></i></div>
                 <div class="label">Current Balance</div>
                 <div class="value val-balance">Rs. <?php echo number_format($balance, 2); ?></div>
                 <?php if ($balance_change !== null) { ?>
@@ -243,7 +270,6 @@ $current_page = "dashboard";
                     </span>
                     <span class="change-label">vs last month</span>
                 <?php } ?>
-                <div class="card-wave wave-balance"></div>
             </div>
         </div>
 
@@ -258,13 +284,15 @@ $current_page = "dashboard";
                             <div class="donut-label">Total Spent</div>
                         </div>
                     </div>
-                    <?php foreach ($category_breakdown as $i => $cat) {
+                    <?php foreach ($category_breakdown as $cat) {
                         $pct = $total_expense_for_chart > 0 ? round(($cat['total'] / $total_expense_for_chart) * 100) : 0;
-                        $color = $palette[$i % count($palette)];
+                        $gc = category_color($cat['category_name']);
                     ?>
                         <div class="legend-row">
                             <div class="legend-left">
-                                <span class="legend-dot" style="background: <?php echo $color; ?>;"></span>
+                                <span class="legend-dot" style="background: <?php echo $gc['text']; ?>;">
+                                    <?php echo category_icon($cat['category_name']); ?>
+                                </span>
                                 <?php echo htmlspecialchars($cat['category_name']); ?>
                             </div>
                             <div>
@@ -339,6 +367,8 @@ $current_page = "dashboard";
                 <p style="color:#888;">No transactions yet. <a href="../transactions/transactions.php">Add your first one</a>.</p>
             <?php } ?>
         </div>
+
+        <a href="../transactions/transactions.php?add=1" class="fab" title="Add a transaction"><i class="fa-solid fa-plus"></i></a>
     </div>
 </body>
 </html>

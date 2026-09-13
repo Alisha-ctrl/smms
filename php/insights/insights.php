@@ -1,6 +1,7 @@
 <?php
 include "../includes/auth_check.php";
 include "../includes/db.php";
+include "../includes/icons.php";
 
 $user_id = $_SESSION["user_id"];
 
@@ -17,8 +18,11 @@ $sql = "SELECT
             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
             SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense
         FROM transactions
-        WHERE user_id = $user_id AND MONTH(transaction_date) = $this_month AND YEAR(transaction_date) = $this_year";
-$result = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+        WHERE user_id = ? AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$result = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 $income = $result['total_income'] ?? 0;
 $expense = $result['total_expense'] ?? 0;
 $net = $income - $expense;
@@ -35,10 +39,13 @@ if ($income == 0 && $expense == 0) {
 $sql = "SELECT c.category_name, SUM(t.amount) AS total
         FROM transactions t
         JOIN categories c ON t.category_id = c.category_id
-        WHERE t.user_id = $user_id AND t.type = 'expense'
-        AND MONTH(t.transaction_date) = $this_month AND YEAR(t.transaction_date) = $this_year
+        WHERE t.user_id = ? AND t.type = 'expense'
+        AND MONTH(t.transaction_date) = ? AND YEAR(t.transaction_date) = ?
         GROUP BY t.category_id ORDER BY total DESC LIMIT 1";
-$top = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$top = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 if ($top && $expense > 0) {
     $percent = round(($top['total'] / $expense) * 100);
     $messages[] = "Your biggest expense this month is " . $top['category_name'] . " (Rs. " . number_format($top['total'], 2) . "), making up $percent% of your total spending.";
@@ -46,14 +53,17 @@ if ($top && $expense > 0) {
 
 // ---- Month-over-month comparison, per category ----
 $sql = "SELECT c.category_name,
-        SUM(CASE WHEN MONTH(t.transaction_date) = $this_month AND YEAR(t.transaction_date) = $this_year THEN t.amount ELSE 0 END) AS this_month_total,
-        SUM(CASE WHEN MONTH(t.transaction_date) = $last_month AND YEAR(t.transaction_date) = $last_year THEN t.amount ELSE 0 END) AS last_month_total
+        SUM(CASE WHEN MONTH(t.transaction_date) = ? AND YEAR(t.transaction_date) = ? THEN t.amount ELSE 0 END) AS this_month_total,
+        SUM(CASE WHEN MONTH(t.transaction_date) = ? AND YEAR(t.transaction_date) = ? THEN t.amount ELSE 0 END) AS last_month_total
         FROM transactions t
         JOIN categories c ON t.category_id = c.category_id
-        WHERE t.user_id = $user_id AND t.type = 'expense'
+        WHERE t.user_id = ? AND t.type = 'expense'
         GROUP BY t.category_id
         HAVING this_month_total > 0 OR last_month_total > 0";
-$comparisons = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iiiii", $this_month, $this_year, $last_month, $last_year, $user_id);
+mysqli_stmt_execute($stmt);
+$comparisons = mysqli_stmt_get_result($stmt);
 while ($row = mysqli_fetch_assoc($comparisons)) {
     $curr = $row['this_month_total']; $prev = $row['last_month_total'];
     if ($prev == 0 || $curr == 0) continue;
@@ -72,9 +82,12 @@ $sql = "SELECT b.budget_amount, c.category_name, COALESCE(SUM(t.amount), 0) AS s
         JOIN categories c ON b.category_id = c.category_id
         LEFT JOIN transactions t ON t.category_id = b.category_id AND t.user_id = b.user_id
             AND t.type = 'expense' AND MONTH(t.transaction_date) = b.month AND YEAR(t.transaction_date) = b.year
-        WHERE b.user_id = $user_id AND b.month = $this_month AND b.year = $this_year
+        WHERE b.user_id = ? AND b.month = ? AND b.year = ?
         GROUP BY b.budget_id";
-$budget_status = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$budget_status = mysqli_stmt_get_result($stmt);
 while ($row = mysqli_fetch_assoc($budget_status)) {
     $spent = $row['spent']; $budget = $row['budget_amount'];
     $percent_used = $budget > 0 ? round(($spent / $budget) * 100) : 0;
@@ -88,8 +101,11 @@ while ($row = mysqli_fetch_assoc($budget_status)) {
 }
 
 // ---- Savings goal progress ----
-$sql = "SELECT * FROM savings_goals WHERE user_id = $user_id AND status = 'active'";
-$goals = mysqli_query($conn, $sql);
+$sql = "SELECT * FROM savings_goals WHERE user_id = ? AND status = 'active'";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "i", $user_id);
+mysqli_stmt_execute($stmt);
+$goals = mysqli_stmt_get_result($stmt);
 $active_goal_count = 0;
 while ($goal = mysqli_fetch_assoc($goals)) {
     $active_goal_count++;
@@ -108,22 +124,28 @@ if ($active_goal_count == 0) {
 $sql = "SELECT c.category_name, SUM(t.amount) AS total
         FROM transactions t
         JOIN categories c ON t.category_id = c.category_id
-        WHERE t.user_id = $user_id AND t.type = 'expense'
-        AND MONTH(t.transaction_date) = $this_month AND YEAR(t.transaction_date) = $this_year
+        WHERE t.user_id = ? AND t.type = 'expense'
+        AND MONTH(t.transaction_date) = ? AND YEAR(t.transaction_date) = ?
         GROUP BY t.category_id ORDER BY total DESC";
-$chart_result = mysqli_query($conn, $sql);
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $this_month, $this_year);
+mysqli_stmt_execute($stmt);
+$chart_result = mysqli_stmt_get_result($stmt);
 $category_breakdown = [];
 while ($row = mysqli_fetch_assoc($chart_result)) {
     $category_breakdown[] = $row;
 }
 
-$palette = ['#769FCD', '#E9B949', '#E74C3C', '#8E44AD', '#219653', '#5A80AC', '#C97B4A', '#34495E'];
+// Colors now come from category_color() in icons.php — a fixed per-category
+// map — instead of a local $palette indexed by array position. This is what
+// keeps a category (e.g. Food) the same color across this chart, its own
+// legend, and every other page that also calls category_color().
 $total_for_chart = array_sum(array_column($category_breakdown, 'total'));
 $gradient_stops = [];
 $running_percent = 0;
-foreach ($category_breakdown as $i => $cat) {
+foreach ($category_breakdown as $cat) {
     $slice_percent = $total_for_chart > 0 ? ($cat['total'] / $total_for_chart) * 100 : 0;
-    $color = $palette[$i % count($palette)];
+    $color = category_color($cat['category_name'])['text'];
     $gradient_stops[] = "$color {$running_percent}% " . ($running_percent + $slice_percent) . "%";
     $running_percent += $slice_percent;
 }
@@ -134,8 +156,11 @@ $sql = "SELECT
             SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) AS total_income,
             SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) AS total_expense
         FROM transactions
-        WHERE user_id = $user_id AND MONTH(transaction_date) = $last_month AND YEAR(transaction_date) = $last_year";
-$last_result = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+        WHERE user_id = ? AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "iii", $user_id, $last_month, $last_year);
+mysqli_stmt_execute($stmt);
+$last_result = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 $last_income = $last_result['total_income'] ?? 0;
 $last_expense = $last_result['total_expense'] ?? 0;
 
@@ -151,6 +176,7 @@ $page_title = "Insights";
 <head>
     <title>Insights - SMMS</title>
     <link rel="stylesheet" href="../includes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         .insight-card { background: #ffffff; border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); padding: 14px 18px; margin-bottom: 10px; max-width: none; }
 
@@ -161,7 +187,11 @@ $page_title = "Insights";
         .donut-hole { position: absolute; top: 22px; left: 22px; width: 106px; height: 106px; background: #ffffff; border-radius: 50%; }
         .legend-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; font-size: 13px; }
         .legend-left { display: flex; align-items: center; gap: 8px; }
-        .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .legend-dot {
+            width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 9px;
+        }
 
         .compare-row { margin-bottom: 14px; }
         .compare-label { font-size: 13px; margin-bottom: 5px; display: flex; justify-content: space-between; }
@@ -189,13 +219,15 @@ $page_title = "Insights";
                     <div class="donut-chart" style="background: conic-gradient(<?php echo $conic_gradient; ?>);">
                         <div class="donut-hole"></div>
                     </div>
-                    <?php foreach ($category_breakdown as $i => $cat) {
+                    <?php foreach ($category_breakdown as $cat) {
                         $pct = $total_for_chart > 0 ? round(($cat['total'] / $total_for_chart) * 100) : 0;
-                        $color = $palette[$i % count($palette)];
+                        $gc = category_color($cat['category_name']);
                     ?>
                         <div class="legend-row">
                             <div class="legend-left">
-                                <span class="legend-dot" style="background: <?php echo $color; ?>;"></span>
+                                <span class="legend-dot" style="background: <?php echo $gc['text']; ?>;">
+                                    <?php echo category_icon($cat['category_name']); ?>
+                                </span>
                                 <?php echo htmlspecialchars($cat['category_name']); ?>
                             </div>
                             <div>Rs. <?php echo number_format($cat['total'], 2); ?> (<?php echo $pct; ?>%)</div>
