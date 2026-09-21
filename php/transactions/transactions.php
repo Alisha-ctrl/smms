@@ -1,1914 +1,266 @@
-```php
 <?php
-
 include "../includes/auth_check.php";
 include "../includes/db.php";
 include "../includes/icons.php";
 
 $user_id = $_SESSION["user_id"];
 $message = "";
-
-$this_month = date('n');
-$this_year = date('Y');
-$month_name = date('F Y');
-
-
-/* =========================================================
-   ADD TRANSACTION + OPTIONAL ATTACHMENT
-   ========================================================= */
+$month = date("n");
+$year = date("Y");
+$month_name = date("F Y");
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $category_id = (int)($_POST["category_id"] ?? 0);
+    $type = $_POST["type"] ?? "expense";
+    $amount = (float)($_POST["amount"] ?? 0);
+    $description = trim($_POST["description"] ?? "");
+    $date = $_POST["transaction_date"] ?? "";
+    $attachment = null;
 
-    $category_id = isset($_POST["category_id"]) ? (int)$_POST["category_id"] : 0;
-    $type = isset($_POST["type"]) ? $_POST["type"] : "expense";
-    $amount = isset($_POST["amount"]) ? (float)$_POST["amount"] : 0;
-    $description = isset($_POST["description"]) ? trim($_POST["description"]) : "";
-    $transaction_date = isset($_POST["transaction_date"]) ? $_POST["transaction_date"] : "";
+    if ($category_id <= 0 || !in_array($type, ["income", "expense"])) $message = "Please select a valid category.";
+    elseif ($amount <= 0) $message = "Amount must be greater than zero.";
+    elseif (!$date) $message = "Please select a date.";
 
-    $attachment_file = NULL;
-    $upload_success = true;
-
-
-    /* ---------------------------------------------------------
-       BASIC VALIDATION
-       --------------------------------------------------------- */
-
-    if ($category_id <= 0) {
-
-        $message = "Please select a category.";
-
-    } elseif (!in_array($type, ["income", "expense"])) {
-
-        $message = "Invalid transaction type.";
-
-    } elseif ($amount <= 0) {
-
-        $message = "Amount must be greater than zero.";
-
-    } elseif (empty($transaction_date)) {
-
-        $message = "Please select a transaction date.";
+    if ($message == "") {
+        $check = mysqli_prepare($conn, "SELECT category_type FROM categories WHERE category_id = ? AND (user_id IS NULL OR user_id = ?)");
+        mysqli_stmt_bind_param($check, "ii", $category_id, $user_id);
+        mysqli_stmt_execute($check);
+        $cat = mysqli_fetch_assoc(mysqli_stmt_get_result($check));
+        if (!$cat || $cat["category_type"] != $type) $message = "Invalid category for selected transaction type.";
     }
 
-
-    /* ---------------------------------------------------------
-       OPTIONAL ATTACHMENT UPLOAD
-       --------------------------------------------------------- */
-
-    if ($message == "" && isset($_FILES["attachment_file"])) {
-
-        if ($_FILES["attachment_file"]["error"] != UPLOAD_ERR_NO_FILE) {
-
-            if ($_FILES["attachment_file"]["error"] !== UPLOAD_ERR_OK) {
-
-                $message = "There was a problem uploading the attachment.";
-                $upload_success = false;
-
+    if ($message == "" && isset($_FILES["attachment_file"]) && $_FILES["attachment_file"]["error"] != UPLOAD_ERR_NO_FILE) {
+        $file = $_FILES["attachment_file"];
+        if ($file["error"] != UPLOAD_ERR_OK) {
+            $message = "Unable to upload attachment.";
+        } elseif ($file["size"] > 5 * 1024 * 1024) {
+            $message = "Attachment must be smaller than 5 MB.";
+        } else {
+            $allowed = ["image/jpeg" => "jpg", "image/png" => "png", "image/webp" => "webp", "application/pdf" => "pdf"];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $file["tmp_name"]);
+            finfo_close($finfo);
+            if (!isset($allowed[$mime])) {
+                $message = "Only PDF, JPG, PNG and WEBP files are allowed.";
             } else {
-
-                /*
-                 * Maximum file size = 5 MB
-                 */
-                $max_size = 5 * 1024 * 1024;
-
-                if ($_FILES["attachment_file"]["size"] > $max_size) {
-
-                    $message = "Attachment must be smaller than 5 MB.";
-                    $upload_success = false;
-
-                } else {
-
-                    /*
-                     * Allowed MIME types
-                     */
-                    $allowed_types = [
-                        "image/jpeg",
-                        "image/png",
-                        "image/webp",
-                        "application/pdf"
-                    ];
-
-                    /*
-                     * Check actual file MIME type
-                     * instead of trusting the file extension.
-                     */
-                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-
-                    $file_type = finfo_file(
-                        $finfo,
-                        $_FILES["attachment_file"]["tmp_name"]
-                    );
-
-                    finfo_close($finfo);
-
-
-                    if (!in_array($file_type, $allowed_types)) {
-
-                        $message = "Invalid attachment. Please upload PDF, JPG, JPEG, PNG or WEBP.";
-                        $upload_success = false;
-
-                    } else {
-
-                        /*
-                         * Create upload directory if it does not exist.
-                         */
-                        $upload_dir = "../uploads/transactions/";
-
-                        if (!is_dir($upload_dir)) {
-
-                            if (!mkdir($upload_dir, 0755, true)) {
-
-                                $message = "Unable to create upload folder.";
-                                $upload_success = false;
-                            }
-                        }
-
-
-                        if ($upload_success) {
-
-                            /*
-                             * Determine safe extension
-                             */
-                            $extension = strtolower(
-                                pathinfo(
-                                    $_FILES["attachment_file"]["name"],
-                                    PATHINFO_EXTENSION
-                                )
-                            );
-
-
-                            /*
-                             * Generate unique filename.
-                             *
-                             * We do NOT use the original filename
-                             * to prevent filename conflicts.
-                             */
-                            $new_file_name =
-                                "transaction_" .
-                                $user_id . "_" .
-                                time() . "_" .
-                                bin2hex(random_bytes(5)) .
-                                "." .
-                                $extension;
-
-
-                            $upload_path =
-                                $upload_dir .
-                                $new_file_name;
-
-
-                            /*
-                             * Move uploaded file
-                             */
-                            if (move_uploaded_file(
-                                $_FILES["attachment_file"]["tmp_name"],
-                                $upload_path
-                            )) {
-
-                                $attachment_file = $new_file_name;
-
-                            } else {
-
-                                $message = "Failed to save the attachment.";
-                                $upload_success = false;
-                            }
-                        }
-                    }
-                }
+                $folder = "../uploads/transactions/";
+                if (!is_dir($folder)) mkdir($folder, 0755, true);
+                $name = "transaction_" . $user_id . "_" . time() . "_" . bin2hex(random_bytes(4)) . "." . $allowed[$mime];
+                if (move_uploaded_file($file["tmp_name"], $folder . $name)) $attachment = $name;
+                else $message = "Failed to save attachment.";
             }
         }
     }
 
-
-    /* ---------------------------------------------------------
-       INSERT TRANSACTION
-       --------------------------------------------------------- */
-
-    if ($message == "" && $upload_success) {
-
-        $sql = "INSERT INTO transactions
-                (
-                    user_id,
-                    category_id,
-                    type,
-                    amount,
-                    description,
-                    transaction_date,
-                    attachment_file
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)";
-
-
+    if ($message == "") {
+        $sql = "INSERT INTO transactions (user_id, category_id, type, amount, description, transaction_date, attachment_file) VALUES (?, ?, ?, ?, ?, ?, ?)";
         $stmt = mysqli_prepare($conn, $sql);
-
-
-        if ($stmt) {
-
-            mysqli_stmt_bind_param(
-                $stmt,
-                "iisdsss",
-                $user_id,
-                $category_id,
-                $type,
-                $amount,
-                $description,
-                $transaction_date,
-                $attachment_file
-            );
-
-
-            if (mysqli_stmt_execute($stmt)) {
-
-                $message = "Transaction added successfully!";
-
-
-                /* =================================================
-                   BUDGET ALERT SYSTEM
-                   ================================================= */
-
-                if ($type == 'expense') {
-
-                    $t_month = (int)date(
-                        'n',
-                        strtotime($transaction_date)
-                    );
-
-                    $t_year = (int)date(
-                        'Y',
-                        strtotime($transaction_date)
-                    );
-
-
-                    /* -------------------------------------------------
-                       FIND BUDGET
-                       ------------------------------------------------- */
-
-                    $budget_sql =
-                        "SELECT *
-                         FROM budgets
-                         WHERE user_id = ?
-                         AND category_id = ?
-                         AND month = ?
-                         AND year = ?";
-
-
-                    $budget_stmt = mysqli_prepare(
-                        $conn,
-                        $budget_sql
-                    );
-
-
-                    if ($budget_stmt) {
-
-                        mysqli_stmt_bind_param(
-                            $budget_stmt,
-                            "iiii",
-                            $user_id,
-                            $category_id,
-                            $t_month,
-                            $t_year
-                        );
-
-
-                        mysqli_stmt_execute($budget_stmt);
-
-
-                        $budget = mysqli_fetch_assoc(
-                            mysqli_stmt_get_result($budget_stmt)
-                        );
-
-
-                        /* -------------------------------------------------
-                           IF BUDGET EXISTS
-                           ------------------------------------------------- */
-
-                        if ($budget) {
-
-                            $spent_sql =
-                                "SELECT COALESCE(SUM(amount), 0) AS spent
-                                 FROM transactions
-                                 WHERE user_id = ?
-                                 AND category_id = ?
-                                 AND type = 'expense'
-                                 AND MONTH(transaction_date) = ?
-                                 AND YEAR(transaction_date) = ?";
-
-
-                            $spent_stmt = mysqli_prepare(
-                                $conn,
-                                $spent_sql
-                            );
-
-
-                            if ($spent_stmt) {
-
-                                mysqli_stmt_bind_param(
-                                    $spent_stmt,
-                                    "iiii",
-                                    $user_id,
-                                    $category_id,
-                                    $t_month,
-                                    $t_year
-                                );
-
-
-                                mysqli_stmt_execute($spent_stmt);
-
-
-                                $spent_result =
-                                    mysqli_stmt_get_result($spent_stmt);
-
-
-                                $spent_row =
-                                    mysqli_fetch_assoc($spent_result);
-
-
-                                $spent =
-                                    $spent_row['spent'] ?? 0;
-
-
-                                /* -------------------------------------------------
-                                   CHECK WHETHER BUDGET IS EXCEEDED
-                                   ------------------------------------------------- */
-
-                                if ($spent > $budget['budget_amount']) {
-
-
-                                    $existing_sql =
-                                        "SELECT alert_id
-                                         FROM budget_alerts
-                                         WHERE budget_id = ?
-                                         AND is_read = 0";
-
-
-                                    $existing_stmt =
-                                        mysqli_prepare(
-                                            $conn,
-                                            $existing_sql
-                                        );
-
-
-                                    if ($existing_stmt) {
-
-                                        mysqli_stmt_bind_param(
-                                            $existing_stmt,
-                                            "i",
-                                            $budget['budget_id']
-                                        );
-
-
-                                        mysqli_stmt_execute(
-                                            $existing_stmt
-                                        );
-
-
-                                        $existing =
-                                            mysqli_fetch_assoc(
-                                                mysqli_stmt_get_result(
-                                                    $existing_stmt
-                                                )
-                                            );
-
-
-                                        /* -------------------------------------------------
-                                           CREATE ALERT ONLY IF ONE DOES NOT EXIST
-                                           ------------------------------------------------- */
-
-                                        if (!$existing) {
-
-
-                                            $cn_stmt =
-                                                mysqli_prepare(
-                                                    $conn,
-                                                    "SELECT category_name
-                                                     FROM categories
-                                                     WHERE category_id = ?"
-                                                );
-
-
-                                            if ($cn_stmt) {
-
-                                                mysqli_stmt_bind_param(
-                                                    $cn_stmt,
-                                                    "i",
-                                                    $category_id
-                                                );
-
-
-                                                mysqli_stmt_execute(
-                                                    $cn_stmt
-                                                );
-
-
-                                                $category_row =
-                                                    mysqli_fetch_assoc(
-                                                        mysqli_stmt_get_result(
-                                                            $cn_stmt
-                                                        )
-                                                    );
-
-
-                                                $category_name =
-                                                    $category_row['category_name']
-                                                    ?? "Category";
-
-
-                                                $over_by =
-                                                    $spent -
-                                                    $budget['budget_amount'];
-
-
-                                                $alert_message =
-                                                    "You've gone over your " .
-                                                    $category_name .
-                                                    " budget by Rs. " .
-                                                    number_format(
-                                                        $over_by,
-                                                        2
-                                                    ) .
-                                                    ".";
-
-
-                                                $insert_alert_stmt =
-                                                    mysqli_prepare(
-                                                        $conn,
-                                                        "INSERT INTO budget_alerts
-                                                         (
-                                                             user_id,
-                                                             budget_id,
-                                                             alert_message
-                                                         )
-                                                         VALUES (?, ?, ?)"
-                                                    );
-
-
-                                                if ($insert_alert_stmt) {
-
-                                                    mysqli_stmt_bind_param(
-                                                        $insert_alert_stmt,
-                                                        "iis",
-                                                        $user_id,
-                                                        $budget['budget_id'],
-                                                        $alert_message
-                                                    );
-
-
-                                                    mysqli_stmt_execute(
-                                                        $insert_alert_stmt
-                                                    );
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+        mysqli_stmt_bind_param($stmt, "iisdsss", $user_id, $category_id, $type, $amount, $description, $date, $attachment);
+
+        if (mysqli_stmt_execute($stmt)) {
+            $message = "Transaction added successfully!";
+
+            if ($type == "expense") {
+                $t_month = date("n", strtotime($date));
+                $t_year = date("Y", strtotime($date));
+
+                $stmt2 = mysqli_prepare($conn, "SELECT * FROM budgets WHERE user_id = ? AND category_id = ? AND month = ? AND year = ?");
+                mysqli_stmt_bind_param($stmt2, "iiii", $user_id, $category_id, $t_month, $t_year);
+                mysqli_stmt_execute($stmt2);
+                $budget = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt2));
+
+                if ($budget) {
+                    $stmt3 = mysqli_prepare($conn, "SELECT SUM(amount) AS spent FROM transactions WHERE user_id = ? AND category_id = ? AND type = 'expense' AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?");
+                    mysqli_stmt_bind_param($stmt3, "iiii", $user_id, $category_id, $t_month, $t_year);
+                    mysqli_stmt_execute($stmt3);
+                    $spent = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt3))["spent"] ?? 0;
+
+                    if ($spent > $budget["budget_amount"]) {
+                        $check = mysqli_prepare($conn, "SELECT alert_id FROM budget_alerts WHERE budget_id = ? AND is_read = 0");
+                        mysqli_stmt_bind_param($check, "i", $budget["budget_id"]);
+                        mysqli_stmt_execute($check);
+                        $alert = mysqli_fetch_assoc(mysqli_stmt_get_result($check));
+
+                        if (!$alert) {
+                            $cat_stmt = mysqli_prepare($conn, "SELECT category_name FROM categories WHERE category_id = ?");
+                            mysqli_stmt_bind_param($cat_stmt, "i", $category_id);
+                            mysqli_stmt_execute($cat_stmt);
+                            $category_name = mysqli_fetch_assoc(mysqli_stmt_get_result($cat_stmt))["category_name"] ?? "Category";
+                            $over = $spent - $budget["budget_amount"];
+                            $alert_message = "You've gone over your " . $category_name . " budget by Rs. " . number_format($over, 2) . ".";
+
+                            $alert_stmt = mysqli_prepare($conn, "INSERT INTO budget_alerts (user_id, budget_id, alert_message) VALUES (?, ?, ?)");
+                            mysqli_stmt_bind_param($alert_stmt, "iis", $user_id, $budget["budget_id"], $alert_message);
+                            mysqli_stmt_execute($alert_stmt);
                         }
                     }
                 }
-
-            } else {
-
-                /*
-                 * If transaction insertion fails,
-                 * delete the uploaded file so that
-                 * unused files are not left in the folder.
-                 */
-                if ($attachment_file !== NULL) {
-
-                    $uploaded_path =
-                        "../uploads/transactions/" .
-                        $attachment_file;
-
-
-                    if (file_exists($uploaded_path)) {
-                        unlink($uploaded_path);
-                    }
-                }
-
-
-                $message =
-                    "Error: Unable to save transaction.";
             }
-
-            mysqli_stmt_close($stmt);
-
         } else {
-
-            /*
-             * If statement preparation fails,
-             * remove uploaded attachment.
-             */
-            if ($attachment_file !== NULL) {
-
-                $uploaded_path =
-                    "../uploads/transactions/" .
-                    $attachment_file;
-
-
-                if (file_exists($uploaded_path)) {
-                    unlink($uploaded_path);
-                }
-            }
-
-
-            $message =
-                "Error preparing transaction.";
+            if ($attachment) unlink("../uploads/transactions/" . $attachment);
+            $message = "Unable to save transaction.";
         }
     }
 }
 
+$categories = mysqli_query($conn, "SELECT * FROM categories WHERE user_id IS NULL OR user_id = $user_id ORDER BY category_type, category_name");
 
-/* =========================================================
-   GET CATEGORIES
-   ========================================================= */
+$sql = "SELECT SUM(CASE WHEN type='income' THEN amount ELSE 0 END) AS income, SUM(CASE WHEN type='expense' THEN amount ELSE 0 END) AS expense FROM transactions WHERE user_id = $user_id AND MONTH(transaction_date) = $month AND YEAR(transaction_date) = $year";
+$summary = mysqli_fetch_assoc(mysqli_query($conn, $sql));
+$income = $summary["income"] ?? 0;
+$expense = $summary["expense"] ?? 0;
+$balance = $income - $expense;
 
-$categories = mysqli_query(
-    $conn,
-    "SELECT *
-     FROM categories
-     WHERE user_id IS NULL
-     OR user_id = $user_id"
-);
-
-
-/* =========================================================
-   MONTHLY SUMMARY
-   ========================================================= */
-
-$sql =
-    "SELECT
-        SUM(
-            CASE
-                WHEN type = 'income'
-                THEN amount
-                ELSE 0
-            END
-        ) AS total_income,
-
-        SUM(
-            CASE
-                WHEN type = 'expense'
-                THEN amount
-                ELSE 0
-            END
-        ) AS total_expense
-
-     FROM transactions
-
-     WHERE user_id = $user_id
-
-     AND MONTH(transaction_date) = $this_month
-
-     AND YEAR(transaction_date) = $this_year";
-
-
-$summary =
-    mysqli_fetch_assoc(
-        mysqli_query($conn, $sql)
-    );
-
-
-$income =
-    $summary['total_income'] ?? 0;
-
-$expense =
-    $summary['total_expense'] ?? 0;
-
-$balance =
-    $income - $expense;
-
-
-/* =========================================================
-   GET TRANSACTIONS
-   ========================================================= */
-
-$sql =
-    "SELECT
-        t.*,
-        c.category_name
-
-     FROM transactions t
-
-     JOIN categories c
-     ON t.category_id = c.category_id
-
-     WHERE t.user_id = $user_id
-
-     AND MONTH(t.transaction_date) = $this_month
-
-     AND YEAR(t.transaction_date) = $this_year
-
-     ORDER BY t.transaction_date DESC";
-
-
-$result =
-    mysqli_query($conn, $sql);
-
-
-/* =========================================================
-   GROUP TRANSACTIONS BY CATEGORY
-   ========================================================= */
+$sql = "SELECT t.*, c.category_name FROM transactions t JOIN categories c ON t.category_id = c.category_id WHERE t.user_id = $user_id AND MONTH(t.transaction_date) = $month AND YEAR(t.transaction_date) = $year ORDER BY t.transaction_date DESC, t.transaction_id DESC";
+$result = mysqli_query($conn, $sql);
 
 $groups = [];
-
-
 while ($row = mysqli_fetch_assoc($result)) {
-
-    $cid = $row['category_id'];
-
-
-    if (!isset($groups[$cid])) {
-
-        $groups[$cid] = [
-            'name' => $row['category_name'],
-            'type' => $row['type'],
-            'total' => 0,
-            'items' => []
-        ];
-    }
-
-
-    $groups[$cid]['total'] += $row['amount'];
-
-    $groups[$cid]['items'][] = $row;
+    $id = $row["category_id"];
+    if (!isset($groups[$id])) $groups[$id] = ["name" => $row["category_name"], "type" => $row["type"], "total" => 0, "items" => []];
+    $groups[$id]["total"] += $row["amount"];
+    $groups[$id]["items"][] = $row;
 }
 
-
-/* =========================================================
-   SORT GROUPS
-   ========================================================= */
-
-uasort(
-    $groups,
-    function ($a, $b) {
-
-        if ($a['type'] !== $b['type']) {
-
-            return $a['type'] === 'income' ? -1 : 1;
-        }
-
-
-        return $b['total'] <=> $a['total'];
-    }
-);
-
-
-/* =========================================================
-   PAGE INFORMATION
-   ========================================================= */
+uasort($groups, function ($a, $b) {
+    if ($a["type"] != $b["type"]) return $a["type"] == "income" ? -1 : 1;
+    return $b["total"] <=> $a["total"];
+});
 
 $current_page = "transactions";
 $page_title = "Transactions";
-
 ?>
-
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
     <title>Transactions - SMMS</title>
-
-    <link
-        rel="stylesheet"
-        href="../includes/style.css"
-    >
-
-
+    <link rel="stylesheet" href="../includes/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-
-        /* =====================================================
-           BALANCE
-           ===================================================== */
-
-        .balance-pill {
-
-            max-width: 320px;
-
-            margin: 0 auto 20px auto;
-
-            padding: 14px;
-
-            border-radius: 30px;
-
-            text-align: center;
-
-            font-size: 18px;
-
-            font-weight: bold;
-
-            color: #ffffff;
-        }
-
-
-        .balance-positive {
-
-            background-color: #219653;
-        }
-
-
-        .balance-negative {
-
-            background-color: #E74C3C;
-        }
-
-
-        /* =====================================================
-           CATEGORY GROUP
-           ===================================================== */
-
-        .category-group {
-
-            background: #ffffff;
-
-            border-radius: 10px;
-
-            box-shadow:
-                0 1px 6px rgba(0,0,0,0.05);
-
-            overflow: hidden;
-
-            margin-bottom: 12px;
-
-            max-width: none;
-        }
-
-
-        .category-header {
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: space-between;
-
-            padding: 14px 18px;
-
-            cursor: pointer;
-        }
-
-
-        .category-header .left {
-
-            display: flex;
-
-            align-items: center;
-
-            gap: 12px;
-        }
-
-
-        .category-icon {
-
-            width: 38px;
-
-            height: 38px;
-
-            border-radius: 50%;
-
-            background: #F7FBFC;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-size: 18px;
-        }
-
-
-        .category-count {
-
-            background: #769FCD;
-
-            color: #ffffff;
-
-            border-radius: 50%;
-
-            width: 20px;
-
-            height: 20px;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            font-size: 11px;
-        }
-
-
-        .category-total.income {
-
-            color: #219653;
-
-            font-weight: bold;
-        }
-
-
-        .category-total.expense {
-
-            color: #E74C3C;
-
-            font-weight: bold;
-        }
-
-
-        /* =====================================================
-           TRANSACTION ITEMS
-           ===================================================== */
-
-        .item-list {
-
-            display: none;
-        }
-
-
-        .item-row {
-
-            display: flex;
-
-            justify-content: space-between;
-
-            align-items: center;
-
-            padding: 10px 18px 10px 66px;
-
-            border-top: 1px solid #F5F5F5;
-
-            font-size: 14px;
-
-            gap: 15px;
-        }
-
-
-        .item-row .item-date {
-
-            color: #999999;
-
-            font-size: 12px;
-        }
-
-
-        .item-actions {
-
-            display: inline-flex;
-
-            align-items: center;
-
-            flex-wrap: wrap;
-
-            gap: 8px;
-
-            margin-left: 10px;
-        }
-
-
-        .item-actions a {
-
-            font-size: 12px;
-
-            text-decoration: none;
-        }
-
-
-        .attachment-link {
-
-            color: #219653;
-
-            font-weight: 600;
-        }
-
-
-        .attachment-link:hover {
-
-            text-decoration: underline;
-        }
-
-
-        /* =====================================================
-           ADD BUTTON
-           ===================================================== */
-
-        .fab-wrapper {
-
-            position: fixed;
-
-            bottom: 25px;
-
-            right: 40px;
-        }
-
-
-        .fab {
-
-            width: 56px;
-
-            height: 56px;
-
-            border-radius: 50%;
-
-            border: none;
-
-            background: #219653;
-
-            color: #ffffff;
-
-            font-size: 26px;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            cursor: pointer;
-
-            box-shadow:
-                0 2px 8px rgba(0,0,0,0.2);
-        }
-
-
-        /* =====================================================
-           ADD FORM
-           ===================================================== */
-
-        #addFormWrapper {
-
-            max-width: 500px;
-
-            margin: 0 auto 30px auto;
-
-            background: #ffffff;
-
-            border-radius: 10px;
-
-            padding: 20px;
-
-            box-shadow:
-                0 2px 8px rgba(0,0,0,0.08);
-        }
-
-
-        .type-toggle {
-
-            display: flex;
-
-            gap: 10px;
-
-            margin-bottom: 20px;
-        }
-
-
-        .type-toggle button {
-
-            flex: 1;
-
-            padding: 12px;
-
-            border-radius: 8px;
-
-            border: 2px solid #DDDDDD;
-
-            background: #ffffff;
-
-            color: #666666;
-
-            font-weight: bold;
-
-            cursor: pointer;
-
-            font-size: 15px;
-        }
-
-
-        .type-toggle button.active.income-active {
-
-            border-color: #219653;
-
-            background: #F2FBF6;
-
-            color: #219653;
-        }
-
-
-        .type-toggle button.active.expense-active {
-
-            border-color: #E74C3C;
-
-            background: #FDEDEB;
-
-            color: #E74C3C;
-        }
-
-
-        /* =====================================================
-           FORM FIELDS
-           ===================================================== */
-
-        .form-label {
-
-            display: block;
-
-            font-weight: 600;
-
-            margin-bottom: 6px;
-        }
-
-
-        .attachment-box {
-
-            border: 2px dashed #DDDDDD;
-
-            border-radius: 8px;
-
-            padding: 14px;
-
-            background: #FAFAFA;
-
-            margin-top: 5px;
-        }
-
-
-        .attachment-box input[type="file"] {
-
-            width: 100%;
-        }
-
-
-        .attachment-help {
-
-            display: block;
-
-            color: #777777;
-
-            font-size: 12px;
-
-            margin-top: 6px;
-
-            line-height: 1.5;
-        }
-
-
-        /* =====================================================
-           RESPONSIVE
-           ===================================================== */
-
-        @media (max-width: 600px) {
-
-            .fab-wrapper {
-
-                right: 20px;
-
-                bottom: 20px;
-            }
-
-
-            .item-row {
-
-                padding-left: 20px;
-
-                flex-direction: column;
-
-                align-items: flex-start;
-            }
-
-
-            .item-row > span:last-child {
-
-                width: 100%;
-            }
-
-
-            .item-actions {
-
-                margin-left: 0;
-
-                margin-top: 5px;
-            }
-        }
-
+        .balance { max-width: 320px; margin: 10px auto 20px; padding: 12px; border-radius: 25px; text-align: center; color: white; font-weight: bold; }
+        .positive { background: #219653; }
+        .negative { background: #e74c3c; }
+        .group { background: white; margin-bottom: 12px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); overflow: hidden; }
+        .group-head { padding: 14px; display: flex; justify-content: space-between; cursor: pointer; }
+        .group-head span { margin-right: 8px; }
+        .items { display: none; }
+        .item { padding: 10px 18px; border-top: 1px solid #E0E0E0; display: flex; justify-content: space-between; }
+        .date { color: #888; font-size: 12px; }
+        .income { color: #219653; font-weight: bold; }
+        .expense { color: #e74c3c; font-weight: bold; }
+        .actions a { margin-left: 8px; font-size: 12px; text-decoration: none; }
+        #form { max-width: 500px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,0.05); }
+        .types { display: flex; gap: 10px; }
+        .types button { width: 50%; padding: 10px; cursor: pointer; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 9px; box-sizing: border-box; }
+        .field { margin-bottom: 15px; }
+        .file-box { border: 1px dashed #E0E0E0; padding: 10px; }
+        .fab { position: fixed; bottom: 28px; right: 28px; width: 58px; height: 58px; border-radius: 50%; border: none; font-size: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+        @media(max-width:600px) { .item { display: block; } .actions { margin-top: 8px; } }
     </style>
-
 </head>
-
-
 <body class="with-sidebar">
+<?php include "../includes/sidebar.php"; ?>
+<div class="main-content">
+<?php include "../includes/topbar.php"; ?>
 
+<p style="text-align:center;color:#666;"><?php echo $month_name; ?></p>
+<div class="balance <?php echo $balance >= 0 ? 'positive' : 'negative'; ?>">Balance: Rs. <?php echo number_format($balance, 2); ?></div>
 
-    <?php include "../includes/sidebar.php"; ?>
+<?php if ($message) { ?>
+    <p style="text-align:center;font-weight:bold;color:<?php
+        echo (strpos(strtolower($message), 'error') !== false || strpos(strtolower($message), 'invalid') !== false || strpos(strtolower($message), 'unable') !== false || strpos(strtolower($message), 'please') !== false || strpos(strtolower($message), 'must be') !== false) ? '#E74C3C' : '#219653';
+    ?>;"><?php echo htmlspecialchars($message); ?></p>
+<?php } ?>
 
+<?php if (!$groups) { ?>
+    <p style="text-align:center;color:#888;">No transactions this month.</p>
+<?php } ?>
 
-    <div class="main-content">
-
-
-        <?php include "../includes/topbar.php"; ?>
-
-
-        <p
-            style="
-                text-align:center;
-                color:#666;
-                margin-top:-10px;
-            "
-        >
-            <?php echo htmlspecialchars($month_name); ?>
-        </p>
-
-
-        <!-- ==================================================
-             BALANCE
-             ================================================== -->
-
-        <div
-            class="balance-pill
-            <?php
-                echo $balance >= 0
-                    ? 'balance-positive'
-                    : 'balance-negative';
-            ?>"
-        >
-
-            Balance:
-            Rs.
-            <?php echo number_format($balance, 2); ?>
-
+<?php foreach ($groups as $id => $group) { ?>
+    <div class="group">
+        <div class="group-head" onclick="toggleGroup('group<?php echo $id; ?>')">
+            <div><span><?php echo category_icon($group["name"]); ?></span> <?php echo htmlspecialchars($group["name"]); ?> <small>(<?php echo count($group["items"]); ?>)</small></div>
+            <span class="<?php echo $group["type"]; ?>"><?php echo $group["type"] == "income" ? "+" : "-"; ?> Rs. <?php echo number_format($group["total"], 2); ?></span>
         </div>
-
-
-        <!-- ==================================================
-             MESSAGE
-             ================================================== -->
-
-        <?php if ($message) { ?>
-
-            <p
-                style="
-                    text-align:center;
-                    color:
-                    <?php
-                        echo (
-                            strpos(
-                                strtolower($message),
-                                'error'
-                            ) !== false ||
-                            strpos(
-                                strtolower($message),
-                                'invalid'
-                            ) !== false
-                        )
-                        ? '#E74C3C'
-                        : '#219653';
-                    ?>;
-                    font-weight:600;
-                "
-            >
-
-                <?php echo htmlspecialchars($message); ?>
-
-            </p>
-
-        <?php } ?>
-
-
-        <!-- ==================================================
-             NO TRANSACTIONS
-             ================================================== -->
-
-        <?php if (count($groups) === 0) { ?>
-
-            <p
-                style="
-                    text-align:center;
-                    color:#888;
-                "
-            >
-                No transactions yet this month.
-                Tap the + button to add one.
-            </p>
-
-        <?php } ?>
-
-
-        <!-- ==================================================
-             TRANSACTION GROUPS
-             ================================================== -->
-
-        <?php foreach ($groups as $cid => $group) {
-
-            $groupId = "group-" . $cid;
-
-        ?>
-
-            <div class="category-group">
-
-
-                <!-- CATEGORY HEADER -->
-
-                <div
-                    class="category-header"
-                    onclick="
-                        toggleGroup(
-                            '<?php echo $groupId; ?>'
-                        )
-                    "
-                >
-
-                    <div class="left">
-
-
-                        <span class="category-icon">
-
-                            <?php
-                            echo category_icon(
-                                $group['name']
-                            );
-                            ?>
-
-                        </span>
-
-
-                        <span>
-
-                            <?php
-                            echo htmlspecialchars(
-                                $group['name']
-                            );
-                            ?>
-
-                        </span>
-
-
-                        <span class="category-count">
-
-                            <?php
-                            echo count(
-                                $group['items']
-                            );
-                            ?>
-
-                        </span>
-
+        <div class="items" id="group<?php echo $id; ?>">
+            <?php foreach ($group["items"] as $item) { ?>
+                <div class="item">
+                    <div>
+                        <?php echo htmlspecialchars($item["description"] ?: $group["name"]); ?><br>
+                        <span class="date"><?php echo htmlspecialchars($item["transaction_date"]); ?></span>
                     </div>
-
-
-                    <span
-                        class="
-                            category-total
-                            <?php echo $group['type']; ?>
-                        "
-                    >
-
-                        <?php
-                        echo $group['type'] == 'income'
-                            ? '+'
-                            : '-';
-                        ?>
-
-                        Rs.
-
-                        <?php
-                        echo number_format(
-                            $group['total'],
-                            2
-                        );
-                        ?>
-
-                    </span>
-
+                    <div>
+                        <span class="<?php echo $item["type"]; ?>"><?php echo $item["type"] == "income" ? "+" : "-"; ?> Rs. <?php echo number_format($item["amount"], 2); ?></span>
+                        <span class="actions">
+                            <?php if (!empty($item["attachment_file"])) { ?>
+                                <a href="../uploads/transactions/<?php echo rawurlencode($item["attachment_file"]); ?>" target="_blank" title="View attachment"><i class="fa-solid fa-paperclip"></i></a>
+                            <?php } ?>
+                            <a href="edit_transaction.php?id=<?php echo (int)$item["transaction_id"]; ?>">Edit</a>
+                            <a href="delete_transaction.php?id=<?php echo (int)$item["transaction_id"]; ?>" onclick="return confirm('Delete this transaction?');">Delete</a>
+                        </span>
+                    </div>
                 </div>
-
-
-                <!-- TRANSACTION LIST -->
-
-                <div
-                    class="item-list"
-                    id="<?php echo $groupId; ?>"
-                >
-
-
-                    <?php foreach (
-                        $group['items']
-                        as $item
-                    ) { ?>
-
-
-                        <div class="item-row">
-
-
-                            <!-- DESCRIPTION + DATE -->
-
-                            <span>
-
-                                <?php
-
-                                echo htmlspecialchars(
-                                    $item['description']
-                                    ?: $group['name']
-                                );
-
-                                ?>
-
-                                <br>
-
-                                <span class="item-date">
-
-                                    <?php
-                                    echo htmlspecialchars(
-                                        $item['transaction_date']
-                                    );
-                                    ?>
-
-                                </span>
-
-                            </span>
-
-
-                            <!-- AMOUNT + ACTIONS -->
-
-                            <span>
-
-
-                                <span
-                                    class="
-                                        <?php
-                                        echo $item['type']
-                                            == 'income'
-                                            ? 'amount-income'
-                                            : 'amount-expense';
-                                        ?>
-                                    "
-                                >
-
-                                    <?php
-                                    echo $item['type']
-                                        == 'income'
-                                        ? '+'
-                                        : '-';
-                                    ?>
-
-                                    Rs.
-
-                                    <?php
-                                    echo number_format(
-                                        $item['amount'],
-                                        2
-                                    );
-                                    ?>
-
-                                </span>
-
-
-                                <!-- ACTIONS -->
-
-                                <span class="item-actions">
-
-
-                                    <?php
-                                    /*
-                                     * Show attachment button
-                                     * only when this transaction
-                                     * has an attachment.
-                                     */
-                                    if (
-                                        !empty(
-                                            $item['attachment_file']
-                                        )
-                                    ) {
-                                    ?>
-
-                                        <a
-                                            href="../uploads/transactions/<?php
-                                                echo rawurlencode(
-                                                    $item['attachment_file']
-                                                );
-                                            ?>"
-                                            target="_blank"
-                                            class="attachment-link"
-                                            title="View attachment"
-                                        >
-                                            📎 Attachment
-                                        </a>
-
-                                    <?php } ?>
-
-
-                                    <a
-                                        href="
-                                            edit_transaction.php?id=<?php
-                                                echo (int)$item[
-                                                    'transaction_id'
-                                                ];
-                                            ?>
-                                        "
-                                    >
-                                        Edit
-                                    </a>
-
-
-                                    <a
-                                        href="
-                                            delete_transaction.php?id=<?php
-                                                echo (int)$item[
-                                                    'transaction_id'
-                                                ];
-                                            ?>
-                                        "
-                                        onclick="
-                                            return confirm(
-                                                'Delete this transaction?'
-                                            );
-                                        "
-                                    >
-                                        Delete
-                                    </a>
-
-
-                                </span>
-
-                            </span>
-
-
-                        </div>
-
-
-                    <?php } ?>
-
-
-                </div>
-
-            </div>
-
-
-        <?php } ?>
-
-
-        <!-- ==================================================
-             ADD TRANSACTION FORM
-             ================================================== -->
-
-        <div
-            id="addFormWrapper"
-            style="display:none;"
-        >
-
-
-            <h3
-                id="addFormTitle"
-                style="
-                    text-align:center;
-                    margin-top:0;
-                "
-            >
-                Add Transaction
-            </h3>
-
-
-            <!-- INCOME / EXPENSE -->
-
-            <div class="type-toggle">
-
-
-                <button
-                    type="button"
-                    id="incomeToggle"
-                    onclick="setType('income')"
-                >
-                    Income
-                </button>
-
-
-                <button
-                    type="button"
-                    id="expenseToggle"
-                    onclick="setType('expense')"
-                >
-                    Expense
-                </button>
-
-
-            </div>
-
-
-            <!-- ==================================================
-                 FORM
-
-                 enctype is REQUIRED for file uploading.
-                 ================================================== -->
-
-            <form
-                method="POST"
-                action="transactions.php"
-                enctype="multipart/form-data"
-            >
-
-
-                <input
-                    type="hidden"
-                    name="type"
-                    id="typeField"
-                    value="expense"
-                >
-
-
-                <!-- CATEGORY -->
-
-                <label class="form-label">
-
-                    Category:
-
-                </label>
-
-
-                <select
-                    name="category_id"
-                    id="categorySelect"
-                    required
-                >
-
-
-                    <?php
-
-                    mysqli_data_seek(
-                        $categories,
-                        0
-                    );
-
-
-                    while (
-                        $cat =
-                        mysqli_fetch_assoc(
-                            $categories
-                        )
-                    ) {
-
-                    ?>
-
-                        <option
-                            value="<?php
-                                echo (int)$cat[
-                                    'category_id'
-                                ];
-                            ?>"
-                            data-type="<?php
-                                echo htmlspecialchars(
-                                    $cat['category_type']
-                                );
-                            ?>"
-                        >
-
-                            <?php
-                            echo htmlspecialchars(
-                                $cat['category_name']
-                            );
-                            ?>
-
-                        </option>
-
-
-                    <?php } ?>
-
-
-                </select>
-
-
-                <br><br>
-
-
-                <!-- AMOUNT -->
-
-                <label class="form-label">
-
-                    Amount:
-
-                </label>
-
-
-                <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    name="amount"
-                    id="amountField"
-                    required
-                >
-
-
-                <br><br>
-
-
-                <!-- DESCRIPTION -->
-
-                <label class="form-label">
-
-                    Description:
-
-                </label>
-
-
-                <input
-                    type="text"
-                    name="description"
-                    placeholder="e.g. Grocery shopping"
-                >
-
-
-                <br><br>
-
-
-                <!-- DATE -->
-
-                <label class="form-label">
-
-                    Date:
-
-                </label>
-
-
-                <input
-                    type="date"
-                    name="transaction_date"
-                    value="<?php
-                        echo date('Y-m-d');
-                    ?>"
-                    required
-                >
-
-
-                <br><br>
-
-
-                <!-- ==================================================
-                     OPTIONAL ATTACHMENT
-                     ================================================== -->
-
-                <label class="form-label">
-
-                    Attachment:
-                    <span
-                        style="
-                            color:#888;
-                            font-weight:normal;
-                        "
-                    >
-                        (Optional)
-                    </span>
-
-                </label>
-
-
-                <div class="attachment-box">
-
-
-                    <input
-                        type="file"
-                        name="attachment_file"
-                        accept=".jpg,.jpeg,.png,.webp,.pdf"
-                    >
-
-
-                    <span class="attachment-help">
-
-                        You can upload a bill, receipt,
-                        invoice, payment proof, screenshot,
-                        bank document, salary slip or any
-                        other file related to this transaction.
-
-                        <br>
-
-                        Supported formats:
-                        PDF, JPG, JPEG, PNG, WEBP
-
-                        <br>
-
-                        Maximum size: 5 MB
-
-                    </span>
-
-
-                </div>
-
-
-                <br>
-
-
-                <!-- SAVE -->
-
-                <button
-                    type="submit"
-                >
-                    Save Transaction
-                </button>
-
-
-            </form>
-
-
+            <?php } ?>
         </div>
-
-
-        <!-- ==================================================
-             FLOATING ADD BUTTON
-             ================================================== -->
-
-        <div class="fab-wrapper">
-
-
-            <div
-                class="fab"
-                onclick="openAddForm()"
-                title="Add Transaction"
-            >
-                +
-            </div>
-
-
-        </div>
-
-
     </div>
-
-
-    <!-- ======================================================
-         JAVASCRIPT
-         ====================================================== -->
-
-    <script>
-
-
-        /* ------------------------------------------------------
-           OPEN / CLOSE CATEGORY
-           ------------------------------------------------------ */
-
-        function toggleGroup(groupId) {
-
-            var el =
-                document.getElementById(groupId);
-
-
-            el.style.display =
-                (el.style.display === "block")
-                ? "none"
-                : "block";
-        }
-
-
-
-        /* ------------------------------------------------------
-           CATEGORY SELECT
-           ------------------------------------------------------ */
-
-        var categorySelect =
-            document.getElementById(
-                'categorySelect'
-            );
-
-
-        var allOptions =
-            Array.from(
-                categorySelect.options
-            );
-
-
-
-        /* ------------------------------------------------------
-           INCOME / EXPENSE TYPE
-           ------------------------------------------------------ */
-
-        function setType(type) {
-
-
-            document.getElementById(
-                'typeField'
-            ).value = type;
-
-
-            document.getElementById(
-                'addFormTitle'
-            ).innerText =
-                type === 'income'
-                ? 'Add Income'
-                : 'Add Expense';
-
-
-
-            var incomeBtn =
-                document.getElementById(
-                    'incomeToggle'
-                );
-
-
-            var expenseBtn =
-                document.getElementById(
-                    'expenseToggle'
-                );
-
-
-
-            incomeBtn.classList.remove(
-                'active',
-                'income-active'
-            );
-
-
-            expenseBtn.classList.remove(
-                'active',
-                'expense-active'
-            );
-
-
-
-            if (type === 'income') {
-
-                incomeBtn.classList.add(
-                    'active',
-                    'income-active'
-                );
-
-            } else {
-
-                expenseBtn.classList.add(
-                    'active',
-                    'expense-active'
-                );
-            }
-
-
-
-            /* --------------------------------------------------
-               SHOW ONLY CATEGORIES OF SELECTED TYPE
-               -------------------------------------------------- */
-
-            allOptions.forEach(
-                function(opt) {
-
-                    opt.hidden =
-                        opt.dataset.type !== type;
-
-                }
-            );
-
-
-
-            var firstMatch =
-                allOptions.find(
-                    function(opt) {
-
-                        return opt.dataset.type === type;
-
-                    }
-                );
-
-
-            if (firstMatch) {
-
-                categorySelect.value =
-                    firstMatch.value;
-            }
-
-        }
-
-
-
-        /* ------------------------------------------------------
-           OPEN ADD FORM
-           ------------------------------------------------------ */
-
-        function openAddForm() {
-
-
-            var wrapper =
-                document.getElementById(
-                    'addFormWrapper'
-                );
-
-
-            wrapper.style.display =
-                'block';
-
-
-            setType('expense');
-
-
-            wrapper.scrollIntoView({
-                behavior: 'smooth'
-            });
-
-
-            document.getElementById(
-                'amountField'
-            ).focus();
-
-        }
-
-
-    </script>
-
-
+<?php } ?>
+
+<div id="form" style="display:none;">
+    <h3 style="text-align:center;">Add Transaction</h3>
+    <div class="types">
+        <button type="button" onclick="setType('income')">Income</button>
+        <button type="button" onclick="setType('expense')">Expense</button>
+    </div>
+    <br>
+    <form method="POST" action="transactions.php" enctype="multipart/form-data">
+        <input type="hidden" name="type" id="type" value="expense">
+        <div class="field">
+            <label>Category</label>
+            <select name="category_id" id="category" required>
+                <?php mysqli_data_seek($categories, 0); while ($cat = mysqli_fetch_assoc($categories)) { ?>
+                    <option value="<?php echo (int)$cat["category_id"]; ?>" data-type="<?php echo htmlspecialchars($cat["category_type"]); ?>"><?php echo htmlspecialchars($cat["category_name"]); ?></option>
+                <?php } ?>
+            </select>
+        </div>
+        <div class="field"><label>Amount</label><input type="number" name="amount" min="0.01" step="0.01" required></div>
+        <div class="field"><label>Description</label><input type="text" name="description" placeholder="e.g. Grocery shopping"></div>
+        <div class="field"><label>Date</label><input type="date" name="transaction_date" value="<?php echo date("Y-m-d"); ?>" required></div>
+        <div class="field">
+            <label>Attachment (Optional)</label>
+            <div class="file-box">
+                <input type="file" name="attachment_file" accept=".jpg,.jpeg,.png,.webp,.pdf">
+                <small>PDF, JPG, PNG or WEBP. Maximum 5 MB.</small>
+            </div>
+        </div>
+        <button type="submit">Save Transaction</button>
+    </form>
+</div>
+
+<button class="fab" onclick="openForm()"><i class="fa-solid fa-plus"></i></button>
+</div>
+
+<script>
+function toggleGroup(id) {
+    var box = document.getElementById(id);
+    box.style.display = box.style.display == "block" ? "none" : "block";
+}
+var category = document.getElementById("category");
+var options = Array.from(category.options);
+function setType(type) {
+    document.getElementById("type").value = type;
+    options.forEach(function(option) { option.hidden = option.dataset.type != type; });
+    var first = options.find(function(option) { return option.dataset.type == type; });
+    if (first) category.value = first.value;
+}
+function openForm() {
+    document.getElementById("form").style.display = "block";
+    setType("expense");
+    document.getElementById("form").scrollIntoView({ behavior: "smooth" });
+}
+setType("expense");
+if (new URLSearchParams(window.location.search).get("add") === "1") openForm();
+</script>
 </body>
-
 </html>
-```
